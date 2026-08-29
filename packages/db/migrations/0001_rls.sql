@@ -27,23 +27,25 @@ LANGUAGE sql STABLE AS $$
 $$;
 --> statement-breakpoint
 
--- Roles locais (opcional; ignorado se já existem ou sem permissão, ex. Neon).
+-- Roles locais (opcional; ignorado em provedores gerenciados como Neon/Supabase — qualquer erro aqui é tolerado).
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'messa_app') THEN
+  -- Só em Postgres próprio (superusuário). Em Neon/Supabase a role não é criada: FORCE RLS cobre o owner.
+  IF current_setting('is_superuser') = 'on' AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'messa_app') THEN
     CREATE ROLE messa_app LOGIN PASSWORD 'messa_app';
   END IF;
-EXCEPTION WHEN insufficient_privilege THEN
-  RAISE NOTICE 'sem permissão para criar role messa_app; usando role atual';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'role messa_app não criada (%); usando role atual', SQLERRM;
 END $$;
 --> statement-breakpoint
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'messa_app') THEN RETURN; END IF;
   GRANT USAGE ON SCHEMA public TO messa_app;
   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO messa_app;
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO messa_app;
-EXCEPTION WHEN undefined_object OR insufficient_privilege THEN
-  RAISE NOTICE 'grants para messa_app ignorados';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'grants para messa_app ignorados (%)', SQLERRM;
 END $$;
 --> statement-breakpoint
 

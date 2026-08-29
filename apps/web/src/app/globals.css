@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: 225 29 72; /* fallback; sobrescrito por tenant */
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased;
+}

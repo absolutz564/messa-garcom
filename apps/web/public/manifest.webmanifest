@@ -1,0 +1,15 @@
+{
+  "name": "Messa — Equipe",
+  "short_name": "Messa",
+  "description": "Painel do caixa e app do garçom",
+  "start_url": "/staff",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fafafa",
+  "theme_color": "#e11d48",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

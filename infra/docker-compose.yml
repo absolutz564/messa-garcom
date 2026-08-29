@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: messa-postgres
+    environment:
+      POSTGRES_USER: messa
+      POSTGRES_PASSWORD: messa
+      POSTGRES_DB: messa
+    ports:
+      - "5432:5432"
+    volumes:
+      - messa-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U messa -d messa"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  messa-pgdata:

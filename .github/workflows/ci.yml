@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: messa
+          POSTGRES_PASSWORD: messa
+          POSTGRES_DB: messa
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U messa -d messa"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://messa_app:messa_app@localhost:5432/messa
+      DATABASE_MIGRATOR_URL: postgres://messa:messa@localhost:5432/messa
+      JWT_SECRET: ci-jwt-secret-ci-jwt-secret-ci-jwt-secret
+      COOKIE_SECRET: ci-cookie-secret-ci-cookie-secret-ci
+      PIN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build --filter=@messa/domain --filter=@messa/contracts --filter=@messa/db
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm db:migrate
+      - name: e2e (tenant isolation)
+        run: pnpm --filter @messa/api test:e2e
+      - run: pnpm build

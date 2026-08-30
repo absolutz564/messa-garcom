@@ -34,11 +34,11 @@ export async function unlockAudio(): Promise<boolean> {
   }
 }
 
-function tone(freq: number, at: number, dur: number, gain = 0.15) {
+function tone(freq: number, at: number, dur: number, gain = 0.9) {
   if (!ctx) return;
   const o = ctx.createOscillator();
   const g = ctx.createGain();
-  o.type = 'sine';
+  o.type = 'square'; // timbre agudo e penetrante: atravessa o barulho de bar
   o.frequency.value = freq;
   g.gain.setValueAtTime(0, at);
   g.gain.linearRampToValueAtTime(gain, at + 0.01);
@@ -50,20 +50,27 @@ function tone(freq: number, at: number, dur: number, gain = 0.15) {
 
 export type Chime = 'request' | 'order' | 'test';
 
-/** request: campainha de 3 notas (chamativa). order: 2 notas curtas. */
+/** request: campainha de 3 notas repetida 3× (~2,5 s). order: 2 notas × 2. */
 export async function chime(kind: Chime) {
   if (!isSoundEnabled()) return;
   if (!(await unlockAudio()) || !ctx) return;
   const t = ctx.currentTime + 0.02;
   if (kind === 'request') {
-    tone(880, t, 0.18);
-    tone(1175, t + 0.2, 0.18);
-    tone(1568, t + 0.4, 0.35, 0.2);
+    for (let i = 0; i < 3; i++) {
+      const b = t + i * 0.85;
+      tone(1047, b, 0.2);
+      tone(1319, b + 0.22, 0.2);
+      tone(1760, b + 0.44, 0.35);
+    }
   } else if (kind === 'order') {
-    tone(660, t, 0.12);
-    tone(990, t + 0.15, 0.25);
+    for (let i = 0; i < 2; i++) {
+      const b = t + i * 0.6;
+      tone(880, b, 0.15);
+      tone(1319, b + 0.18, 0.3);
+    }
   } else {
-    tone(880, t, 0.15);
+    tone(1047, t, 0.2);
+    tone(1319, t + 0.22, 0.3);
   }
 }
 
@@ -90,17 +97,19 @@ export async function requestNotifications(): Promise<NotificationPermission | '
   }
 }
 
-/** Mostra a notificação só quando a aba não está visível; `tag` evita duplicatas. */
-export function notify(title: string, body: string, tag: string) {
-  if (!notificationsSupported() || Notification.permission !== 'granted') return;
-  if (document.visibilityState === 'visible' && document.hasFocus()) return;
+/** Mostra a notificação só quando a aba não está visível (ou `force`); `tag` evita duplicatas. */
+export function notify(title: string, body: string, tag: string, force = false): boolean {
+  if (!notificationsSupported() || Notification.permission !== 'granted') return false;
+  if (!force && document.visibilityState === 'visible' && document.hasFocus()) return false;
   try {
     const n = new Notification(title, { body, tag, icon: '/icon.svg', badge: '/icon.svg', requireInteraction: true, lang: 'pt-BR' });
     n.onclick = () => {
       window.focus();
       n.close();
     };
+    return true;
   } catch {
     /* alguns navegadores móveis exigem service worker; o som continua */
+    return false;
   }
 }

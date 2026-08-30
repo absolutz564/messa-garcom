@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { DomainEventEnvelope } from '@messa/contracts';
-import { API_URL, getSession } from './api';
+import { API_URL, getSession, refreshSession } from './api';
 
 type Handler = (event: DomainEventEnvelope) => void;
 
@@ -25,6 +25,13 @@ export function useRealtime(onEvent: Handler, opts: { staff?: boolean; enabled?:
       reconnectionDelayMax: 5000,
     });
     socket.on('event', (e: DomainEventEnvelope) => handler.current(e));
+    if (staff) {
+      // Access token dura 15 min: se o servidor derrubar o socket, renova e reconecta.
+      socket.on('disconnect', (reason) => {
+        if (reason === 'io server disconnect') void refreshSession().then(() => socket.connect());
+      });
+      socket.on('connect_error', () => void refreshSession());
+    }
     return () => {
       socket.disconnect();
     };

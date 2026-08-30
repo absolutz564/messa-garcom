@@ -97,7 +97,7 @@ export default function StaffPage() {
     const base = 'Messa · Equipe';
     document.title = pending > 0 ? `(${pending}) Solicitação de atendimento` : base;
     if (pending === 0) return;
-    const id = window.setInterval(() => void chime('request'), 15_000);
+    const id = window.setInterval(() => void chime('request'), 10_000);
     return () => {
       window.clearInterval(id);
       document.title = base;
@@ -142,7 +142,20 @@ export default function StaffPage() {
             >
               {sound ? (notif === 'granted' ? '🔔 Som + notificações' : '🔔 Som ligado') : '🔕 Som desligado'}
             </Button>
-            {sound && notif === 'denied' && <span className="self-center text-xs text-neutral-500" title="Permita notificações nas configurações do site (cadeado na barra de endereço)">notificações bloqueadas</span>}
+            {sound && notif === 'granted' && (
+              <Button
+                variant="ghost"
+                title="Mostra um balão de teste do sistema (mesmo com esta aba em primeiro plano)"
+                onClick={() => {
+                  const ok = notify('Messa — teste', 'Se você está vendo isto, as notificações do sistema funcionam.', 'test', true);
+                  if (!ok) window.alert('O navegador não exibiu a notificação. Verifique: Windows → Configurações → Notificações → Chrome ativado, e o Assistente de Foco desligado.');
+                }}
+              >
+                Testar notificação
+              </Button>
+            )}
+            {sound && notif === 'denied' && <span className="self-center text-xs text-red-600" title="Clique no cadeado na barra de endereço → Notificações → Permitir">notificações bloqueadas no navegador</span>}
+            {sound && notif === 'default' && <span className="self-center text-xs text-amber-700">clique no sino para permitir notificações</span>}
             {areas.map((a) => (
               <Button key={a.key} variant={a.isOpen ? 'secondary' : 'danger'} disabled={!isOperator || busy === a.key} onClick={() => run(a.key, () => api(`/admin/service-areas/${a.key}`, { method: 'PATCH', body: { isOpen: !a.isOpen } }))}>
                 {a.isOpen ? ptBR.staff.area.close[a.key] : ptBR.staff.area.open[a.key]}

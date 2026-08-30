@@ -65,11 +65,11 @@ export function StaffShell({
           <div className="flex items-center gap-6">
             <span className="font-semibold">{title}</span>
             <nav className="flex gap-1">
-              {nav.map((item) => (
+              {[...nav, ...(session.activeTenant?.role === 'admin' && !nav.some((n) => n.href.startsWith('/admin')) ? [{ href: '/admin', label: 'Administração' }] : [])].map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-lg px-3 py-1.5 text-sm ${pathname.startsWith(item.href) ? 'bg-neutral-900 text-white' : 'text-neutral-700 hover:bg-neutral-100'}`}
+                  className={`rounded-lg px-3 py-1.5 text-sm ${(item.href === '/staff' ? pathname === '/staff' || pathname.startsWith('/staff/order') : pathname.startsWith(item.href)) ? 'bg-neutral-900 text-white' : 'text-neutral-700 hover:bg-neutral-100'}`}
                 >
                   {item.label}
                 </Link>

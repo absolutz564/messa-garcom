@@ -13,7 +13,7 @@ Tempo estimado: 30–45 min presenciais. Leve QR Codes já impressos se as mesas
 4. **Equipe**: convidar o caixa (papel *Operador*) e os garçons (*Garçom*). Cada um recebe e-mail; no celular, abrir o link, criar senha e **adicionar à tela inicial** (PWA).
 
 ## Treinamento (10 min)
-**Caixa** — abrir `/staff` num tablet/PC fixo e deixar aberto:
+**Caixa** — abrir `/staff` num tablet/PC fixo e deixar aberto. **Clicar uma vez em "🔔 Som ligado"** ao abrir (o navegador só libera áudio depois de um clique); a partir daí toca uma campainha a cada solicitação e um toque curto a cada pedido, e repete a cada 15 s enquanto houver solicitação sem resposta. Volume do aparelho alto.
 - Card amarelo piscando = cliente pediu atendimento → **LIBERAR** ou **RECUSAR**.
 - Card "Pedidos a lançar" = pedido novo → lançar no PDV e clicar **Lançado no caixa**.
 - Mesa vermelha "Inativa" = mais de 1 h sem pedidos; se alguém pedir, o sistema pergunta: **Novo cliente** (fecha a comanda antiga) ou **Continuar** (mesma comanda). Na dúvida, olhar a mesa.

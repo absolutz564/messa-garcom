@@ -16,6 +16,17 @@ runas /trustlevel:0x20000 "cmd /c <caminho>\pg_ctl.exe -D <repo>\infra\.pgdata -
 ```
 (`pg_ctl.exe` fica em `node_modules/.pnpm/@embedded-postgres+windows-x64*/node_modules/@embedded-postgres/windows-x64/native/bin/`). Use caminhos 8.3 (`dir /x`) se o caminho tiver acentos.
 
+## Produção (desde 2026-08-29)
+| Componente | Onde | Endereço |
+|---|---|---|
+| Web | Vercel, projeto `messa-garcom-web` (Root Directory `apps/web`) | `https://messa-garcom.com.br` (`www` → 308) |
+| API | Fly.io, app `messa-api`, região `gru`, volume `messa_data` | `https://api.messa-garcom.com.br` (`messa-api.fly.dev`) |
+| Banco | Neon, projeto `messa`, `sa-east-1`, PG 18, db `neondb` | free tier — *scale to zero* não pode ser desligado no free; o monitor de uptime em `/ready` a cada 5 min mantém o compute acordado |
+| E-mail | Resend, domínio `messa-garcom.com.br` | remetente `Messa <no-reply@messa-garcom.com.br>` |
+| DNS | registro.br (`a/b.auto.dns.br`) | A apex → Vercel; A/AAAA `api` → Fly; DKIM/SPF/MX `send` → Resend |
+| Uptime | UptimeRobot (5 min) | `/ready` da API e `/` do web |
+| Código | GitHub `absolutz564/messa-garcom`, branch `main` | push em `main` ⇒ Vercel; tag `v*` ⇒ Fly (`deploy-api.yml`, requer secret `FLY_API_TOKEN`) |
+
 ## Custos estimados (MVP)
 | Serviço | Plano | Custo |
 |---|---|---|

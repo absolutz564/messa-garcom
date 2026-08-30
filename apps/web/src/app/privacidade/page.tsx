@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BackLink } from '@/components/back-link';
 
 export const metadata: Metadata = { title: 'Política de Privacidade · Messa' };
 
@@ -6,6 +7,7 @@ export const metadata: Metadata = { title: 'Política de Privacidade · Messa' }
 export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-10 text-neutral-800">
+      <BackLink />
       <h1 className="text-2xl font-bold">Política de Privacidade</h1>
       <p className="mt-1 text-sm text-neutral-500">Messa — Garçom Virtual · última atualização: 29/08/2026</p>
 
@@ -45,6 +47,9 @@ export default function PrivacyPage() {
           Encarregado de dados: <a className="underline" href="mailto:privacidade@messa-garcom.com.br">privacidade@messa-garcom.com.br</a>
         </p>
       </section>
+      <div className="mt-8">
+        <BackLink label="← Voltar ao cardápio" />
+      </div>
     </main>
   );
 }

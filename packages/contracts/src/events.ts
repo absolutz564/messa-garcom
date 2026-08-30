@@ -23,6 +23,9 @@ export const EVENT_TYPES = [
   'membership.created',
   'staff_device.revoked',
   'session.pin_failed',
+  'bill.requested',
+  'bill.acknowledged',
+  'bill.cancelled',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -63,4 +66,7 @@ export const EVENT_ROOMS: Record<EventType, Array<'tenant' | 'session' | 'reques
   'membership.created': ['tenant'],
   'staff_device.revoked': ['tenant'],
   'session.pin_failed': [],
+  'bill.requested': ['tenant', 'session'],
+  'bill.acknowledged': ['tenant', 'session'],
+  'bill.cancelled': ['tenant', 'session'],
 };

@@ -33,6 +33,17 @@ export const ptBR = {
       'Este atendimento ficou mais de 1 hora sem novos pedidos. Para garantir que seu pedido não seja incluído por engano na conta de outro cliente que esteve nesta mesa anteriormente, o responsável pelo caixa precisa confirmar o atendimento. Aguarde a confirmação para continuar.',
     sent: '⏳ Solicitação enviada ao caixa...',
   },
+  bill: {
+    cta: 'Pedir a conta',
+    confirmTitle: 'Pedir a conta?',
+    confirmBody: 'O garçom vai levar a conta até a mesa. Depois disso não é possível fazer novos pedidos neste atendimento.',
+    confirmAction: 'Sim, pedir a conta',
+    requested: 'Conta solicitada ✔',
+    requestedBody: 'Aguarde — o garçom vai levar a conta até você.',
+    cancel: 'Cancelar pedido de conta',
+    onTheWay: 'Sua conta está a caminho 🧾',
+    onTheWayBody: 'Total {total}. Obrigado pela preferência!',
+  },
   product: {
     unavailable: 'Indisponível',
     areaClosed: { kitchen: 'Cozinha encerrada', bar: 'Bar encerrado' },
@@ -65,6 +76,14 @@ export const ptBR = {
       continue: 'Continuar sessão anterior',
     },
     order: { ack: 'Lançado no caixa', cancel: 'Cancelar pedido', queueTitle: 'Pedidos a lançar', pendingConfirmation: 'Aguardando confirmação do atendimento' },
+    bill: {
+      title: '{table} pediu a conta',
+      body: '{orderCount} pedidos · {total}{pending}',
+      ack: 'Confirmar — levar a conta',
+      acked: 'Conta a caminho',
+      close: 'Pago — encerrar atendimento',
+      badge: 'Conta pedida',
+    },
     session: {
       close: {
         pending: {

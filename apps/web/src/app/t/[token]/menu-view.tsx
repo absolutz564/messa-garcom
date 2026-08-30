@@ -143,7 +143,7 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
         window.localStorage.removeItem(awaitingKey(token));
         setUi({ kind: 'notice', title: ptBR.session.closed.title, body: ptBR.session.closed.body });
       } else if (e.type.startsWith('order.')) void loadConsumption();
-      else if (e.type.startsWith('session.')) publicApi.session().then((session) => setUi({ kind: 'session', session, awaiting: cur.awaiting })).catch(() => undefined);
+      else if (e.type.startsWith('session.') || e.type.startsWith('bill.')) publicApi.session().then((session) => setUi({ kind: 'session', session, awaiting: cur.awaiting })).catch(() => undefined);
     }
     if (e.type === 'service_area.changed' || e.type === 'catalog.changed') window.location.reload();
     if (cur.kind === 'browsing' && e.type.startsWith('session.')) void bootstrap();
@@ -217,6 +217,33 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
     }
   }
 
+  async function requestBill() {
+    if (ui.kind !== 'session') return;
+    const ok = await dialog.confirm({ title: ptBR.bill.confirmTitle, body: ptBR.bill.confirmBody, confirmLabel: ptBR.bill.confirmAction });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const session = await publicApi.requestBill();
+      setUi({ kind: 'session', session, awaiting: null });
+      await loadConsumption();
+      setTab('bill');
+    } catch (e) {
+      setError(isApiError(e) ? e.error.message : 'Falha de conexão. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelBill() {
+    if (ui.kind !== 'session') return;
+    try {
+      const session = await publicApi.cancelBill();
+      setUi({ kind: 'session', session, awaiting: null });
+    } catch (e) {
+      setError(isApiError(e) ? e.error.message : 'Falha de conexão. Tente novamente.');
+    }
+  }
+
   async function cancelOrder(o: Order) {
     if (!(await dialog.confirm({ title: `Cancelar o pedido #${o.sequenceNo}?`, body: o.items.map((i) => `${i.quantity}× ${i.name}`).join(', '), confirmLabel: 'Cancelar pedido', danger: true }))) return;
     try {
@@ -227,7 +254,8 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
     }
   }
 
-  const canOrder = inSession && !(ui.kind === 'session' && ui.awaiting);
+  const billRequested = ui.kind === 'session' && Boolean(ui.session.bill.requestedAt);
+  const canOrder = inSession && !(ui.kind === 'session' && ui.awaiting) && !billRequested;
 
   return (
     <main className="mx-auto min-h-screen max-w-md bg-white pb-44">
@@ -342,7 +370,26 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
           </div>
         )}
 
-        {ui.kind === 'session' && !ui.awaiting && (
+        {ui.kind === 'session' && !ui.awaiting && ui.session.bill.requestedAt && (
+          <div className="text-center">
+            {ui.session.bill.acknowledgedAt ? (
+              <>
+                <p className="font-semibold">{ptBR.bill.onTheWay}</p>
+                <p className="mt-1 text-sm text-neutral-600">{ptBR.bill.onTheWayBody.replace('{total}', money(ui.session.totalCents))}</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold">{ptBR.bill.requested}</p>
+                <p className="mt-1 text-sm text-neutral-600">{ptBR.bill.requestedBody}</p>
+                <button type="button" onClick={cancelBill} className="mt-2 text-xs text-neutral-500 underline">
+                  {ptBR.bill.cancel}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {ui.kind === 'session' && !ui.awaiting && !ui.session.bill.requestedAt && (
           <>
             {error && <p className="mb-2 text-center text-sm text-red-600">{error}</p>}
             {flash && !error && <p className="mb-2 text-center text-sm text-green-700">{flash}</p>}
@@ -352,9 +399,16 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
                 <span>{money(cart.totalCents)}</span>
               </button>
             ) : (
-              <p className="text-center text-sm text-neutral-500">
-                {ui.session.status === 'inactive' ? 'Sem pedidos há mais de 1 hora. Ao pedir, o caixa vai confirmar seu atendimento.' : 'Toque em + para adicionar itens ao seu pedido.'}
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="flex-1 text-sm text-neutral-500">
+                  {ui.session.status === 'inactive' ? 'Sem pedidos há mais de 1 hora. Ao pedir, o caixa vai confirmar seu atendimento.' : 'Toque em + para adicionar itens ao seu pedido.'}
+                </p>
+                {(consumption?.orders.some((o) => o.status !== 'cancelled') ?? false) && (
+                  <button type="button" onClick={requestBill} disabled={busy} className="whitespace-nowrap rounded-xl border border-neutral-300 px-4 py-3 text-sm font-semibold text-neutral-800">
+                    {ptBR.bill.cta}
+                  </button>
+                )}
+              </div>
             )}
           </>
         )}

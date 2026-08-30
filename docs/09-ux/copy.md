@@ -23,6 +23,16 @@ Chaves em `packages/contracts/src/i18n/pt-BR.ts`. Textos aqui são a fonte; muda
 | `resume.title` | ⏳ Aguarde a confirmação do restaurante |
 | `resume.body` | Este atendimento ficou mais de 1 hora sem novos pedidos. Para garantir que seu pedido não seja incluído por engano na conta de outro cliente que esteve nesta mesa anteriormente, o responsável pelo caixa precisa confirmar o atendimento. Aguarde a confirmação para continuar. |
 | `resume.sent` | ⏳ Solicitação enviada ao caixa... |
+| `bill.cta` | Pedir a conta |
+| `bill.confirmTitle` | Pedir a conta? |
+| `bill.confirmBody` | O garçom vai levar a conta até a mesa. Depois disso não é possível fazer novos pedidos neste atendimento. |
+| `bill.requested` | Conta solicitada ✔ |
+| `bill.requestedBody` | Aguarde — o garçom vai levar a conta até você. |
+| `bill.onTheWay` | Sua conta está a caminho 🧾 |
+| `bill.onTheWayBody` | Total {total}. Obrigado pela preferência! |
+| `staff.bill.title` | {table} pediu a conta |
+| `staff.bill.ack` | Confirmar — levar a conta |
+| `staff.bill.close` | Pago — encerrar atendimento |
 | `product.unavailable` | Indisponível |
 | `product.areaClosed.kitchen` | Cozinha encerrada |
 | `product.areaClosed.bar` | Bar encerrado |

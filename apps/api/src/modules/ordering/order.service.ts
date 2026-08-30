@@ -43,6 +43,9 @@ export class OrderService {
         if (!p) throw new ForbiddenException({ code: 'forbidden' });
       }
 
+      // BR-18: com a conta pedida, o cliente não adiciona itens (staff ainda pode, ex.: correção).
+      if (actor.kind === 'customer' && fresh!.billRequestedAt) throw new DomainError('bill_requested', 'A conta já foi pedida para esta mesa. Cancele o pedido de conta para pedir mais itens.');
+
       const placement = decideOrderPlacement(fresh!.status as 'active' | 'inactive' | 'closed', actor.kind);
 
       // BR-11: valida contra o catálogo e congela nome/preço.

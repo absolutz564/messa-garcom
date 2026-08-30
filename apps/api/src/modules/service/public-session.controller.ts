@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, HttpCode, Inject, Param, Patch, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Inject, Param, Patch, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { JoinSessionSchema, UpdateParticipantSchema } from '@messa/contracts';
 import { DomainError } from '@messa/domain';
@@ -61,6 +61,21 @@ export class PublicSessionController {
   me(@Req() req: FastifyRequest, @Body(new ZodPipe(UpdateParticipantSchema)) body: { name: string | null }) {
     const c = this.customer.requireParticipant(req);
     return this.sessions.setParticipantName(c.t, c.s, c.p, body.name);
+  }
+
+  /** RF-68 — pedir a conta / desistir. */
+  @Post('session/bill')
+  @HttpCode(200)
+  requestBill(@Req() req: FastifyRequest) {
+    const c = this.customer.requireParticipant(req);
+    return this.sessions.requestBill(c.t, c.s, c.p);
+  }
+
+  @Delete('session/bill')
+  @HttpCode(200)
+  cancelBill(@Req() req: FastifyRequest) {
+    const c = this.customer.requireParticipant(req);
+    return this.sessions.cancelBill(c.t, c.s, c.p);
   }
 
   /** Sessão atual do participante. 410 quando encerrada (cookie é limpo). */

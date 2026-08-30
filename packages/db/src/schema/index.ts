@@ -271,6 +271,10 @@ export const sessions = pgTable(
     openedBy: text('opened_by').notNull(),
     openedByUserId: uuid('opened_by_user_id'),
     lastActivityAt: ts('last_activity_at').notNull().defaultNow(),
+    /** Pedido de conta (RF-68): solicitado pelo cliente, confirmado pelo staff. Não encerra a sessão. */
+    billRequestedAt: ts('bill_requested_at'),
+    billRequestedByParticipantId: uuid('bill_requested_by_participant_id'),
+    billAcknowledgedAt: ts('bill_acknowledged_at'),
     closedAt: ts('closed_at'),
     closedByUserId: uuid('closed_by_user_id'),
     closeReason: text('close_reason'),

@@ -51,6 +51,14 @@ export class StaffSessionController {
     return this.sessions.staffSession(p.tenantId!, id);
   }
 
+  /** RF-68 — confirma que a conta será levada; não encerra. */
+  @Post('sessions/:id/bill/ack')
+  @Roles('operator', 'waiter')
+  @HttpCode(200)
+  ackBill(@CurrentPrincipal() p: StaffPrincipal, @Param('id', ParseUUIDPipe) id: string) {
+    return this.sessions.acknowledgeBill(p.tenantId!, id, actor(p));
+  }
+
   @Post('sessions/:id/close')
   @Roles('operator')
   @HttpCode(200)

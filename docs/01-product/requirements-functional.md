@@ -83,7 +83,7 @@ Prioridade: **M** must · **S** should · **F** future.
 | RF-65 | Operador cancela pedido com motivo. | M |
 | RF-66 | Participantes veem consumo consolidado da mesa. | M |
 | RF-67 | Cliente cancela o próprio pedido enquanto não lançado. | S |
-| RF-68 | "Chamar garçom" / "Pedir a conta". | S |
+| RF-68 | "Pedir a conta" (entregue 2026-08-29, BR-18). "Chamar garçom" segue SHOULD. | M |
 | RF-69 | Pagamento, divisão de conta. | F |
 
 ## Usuários e acesso

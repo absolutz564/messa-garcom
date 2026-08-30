@@ -15,7 +15,7 @@ import {
   type RequestResolution,
   type TableState,
 } from '@messa/domain';
-import type { CustomerRequest, CustomerSession, StaffRequest, StaffSession, StaffTable } from '@messa/contracts';
+import type { BillState, CustomerRequest, CustomerSession, StaffRequest, StaffSession, StaffTable } from '@messa/contracts';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
 import { PinCipher } from '../../common/pin-cipher';
 import { DB } from '../db/db.module';
@@ -171,6 +171,7 @@ export class SessionService {
       if (session.status === 'closed') throw new DomainError('session_closed', MESSAGES.session_closed ?? 'Atendimento encerrado');
       const [table] = await tx.select({ id: schema.tables.id, displayName: schema.tables.displayName }).from(schema.tables).where(eq(schema.tables.id, session.tableId));
       const [nRow] = await tx.select({ n: count() }).from(schema.sessionParticipants).where(eq(schema.sessionParticipants.sessionId, sessionId));
+      const stats = await this.sessionStats(tx, [sessionId]);
       return {
         id: session.id,
         status: session.status as CustomerSession['status'],
@@ -180,8 +181,60 @@ export class SessionService {
         participantsCount: Number(nRow?.n ?? 0),
         openedAt: session.openedAt.toISOString(),
         lastActivityAt: session.lastActivityAt.toISOString(),
+        bill: await this.billState(tx, session),
+        totalCents: stats.get(sessionId)?.total ?? 0,
       };
     });
+  }
+
+  /** RF-68 — cliente pede a conta. Idempotente; não encerra a sessão (BR-18). */
+  async requestBill(tenantId: string, sessionId: string, participantId: string): Promise<CustomerSession> {
+    await this.db.withTenantTx(tenantId, async (tx) => {
+      const [session] = await tx.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId));
+      if (!session || session.status === 'closed') throw new DomainError('session_closed', MESSAGES.session_closed ?? 'Atendimento encerrado');
+      if (session.billRequestedAt) return;
+      await tx.update(schema.sessions).set({ billRequestedAt: new Date(), billRequestedByParticipantId: participantId, billAcknowledgedAt: null }).where(eq(schema.sessions.id, sessionId));
+      const [table] = await tx.select({ displayName: schema.tables.displayName }).from(schema.tables).where(eq(schema.tables.id, session.tableId));
+      await this.outbox.append(tx, { tenantId, type: 'bill.requested', aggregateType: 'session', aggregateId: sessionId, actor: { kind: 'customer', id: participantId }, payload: { tableId: session.tableId, tableName: table?.displayName, participantId } });
+    });
+    return this.customerSession(tenantId, sessionId, participantId);
+  }
+
+  /** Cliente desiste do pedido de conta (só antes de confirmado pelo staff). */
+  async cancelBill(tenantId: string, sessionId: string, participantId: string): Promise<CustomerSession> {
+    await this.db.withTenantTx(tenantId, async (tx) => {
+      const [session] = await tx.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId));
+      if (!session || session.status === 'closed') throw new DomainError('session_closed', MESSAGES.session_closed ?? 'Atendimento encerrado');
+      if (!session.billRequestedAt) return;
+      if (session.billAcknowledgedAt) throw new DomainError('bill_already_acknowledged', 'A conta já está a caminho');
+      await tx.update(schema.sessions).set({ billRequestedAt: null, billRequestedByParticipantId: null }).where(eq(schema.sessions.id, sessionId));
+      await this.outbox.append(tx, { tenantId, type: 'bill.cancelled', aggregateType: 'session', aggregateId: sessionId, actor: { kind: 'customer', id: participantId }, payload: { tableId: session.tableId } });
+    });
+    return this.customerSession(tenantId, sessionId, participantId);
+  }
+
+  /** Staff confirma que vai levar a conta. A sessão continua aberta até o encerramento (pagamento). */
+  async acknowledgeBill(tenantId: string, sessionId: string, actor: Actor): Promise<StaffSession> {
+    return this.db.withTenantTx(tenantId, async (tx) => {
+      const [session] = await tx.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId));
+      if (!session) throw new NotFoundException({ code: 'not_found' });
+      if (session.status === 'closed') throw new ConflictException({ code: 'session_closed', message: 'Sessão já encerrada' });
+      if (!session.billRequestedAt) throw new DomainError('bill_not_requested', 'Esta mesa não pediu a conta');
+      const [updated] = await tx.update(schema.sessions).set({ billAcknowledgedAt: new Date() }).where(eq(schema.sessions.id, sessionId)).returning();
+      await this.outbox.append(tx, { tenantId, type: 'bill.acknowledged', aggregateType: 'session', aggregateId: sessionId, actor, payload: { tableId: session.tableId } });
+      const [t] = await tx.select().from(schema.tables).where(eq(schema.tables.id, session.tableId));
+      const stats = await this.sessionStats(tx, [sessionId]);
+      return this.staffSessionDto(updated!, t!, stats.get(sessionId), await this.billState(tx, updated!));
+    });
+  }
+
+  private async billState(tx: Tx, session: SessionRow): Promise<BillState> {
+    let ordinal: number | null = null;
+    if (session.billRequestedByParticipantId) {
+      const [p] = await tx.select({ ordinal: schema.sessionParticipants.ordinal }).from(schema.sessionParticipants).where(eq(schema.sessionParticipants.id, session.billRequestedByParticipantId));
+      ordinal = p?.ordinal ?? null;
+    }
+    return { requestedAt: session.billRequestedAt?.toISOString() ?? null, requestedByOrdinal: ordinal, acknowledgedAt: session.billAcknowledgedAt?.toISOString() ?? null };
   }
 
   /** PDR-012 (rev.): primeiro nome opcional, só para entrega; apagado ao encerrar. */
@@ -229,7 +282,7 @@ export class SessionService {
           id: t.id,
           displayName: t.displayName,
           state: deriveTableState({ isActive: t.isActive, liveSessionStatus: (s?.status as 'active' | 'inactive' | undefined) ?? null, hasPendingOpenRequest: p.open > 0 }),
-          session: s ? this.staffSessionDto(s, t, stats.get(s.id)) : null,
+          session: s ? this.staffSessionDto(s, t, stats.get(s.id), { requestedAt: s.billRequestedAt?.toISOString() ?? null, requestedByOrdinal: null, acknowledgedAt: s.billAcknowledgedAt?.toISOString() ?? null }) : null,
           pendingRequests: p.total,
         };
       });
@@ -256,7 +309,7 @@ export class SessionService {
       if (!s) throw new NotFoundException({ code: 'not_found' });
       const [t] = await tx.select().from(schema.tables).where(eq(schema.tables.id, s.tableId));
       const stats = await this.sessionStats(tx, [s.id]);
-      return this.staffSessionDto(s, t!, stats.get(s.id));
+      return this.staffSessionDto(s, t!, stats.get(s.id), await this.billState(tx, s));
     });
   }
 
@@ -509,8 +562,9 @@ export class SessionService {
     return map;
   }
 
-  private staffSessionDto(s: SessionRow, t: typeof schema.tables.$inferSelect, stats?: { participants: number; orders: number; unacked: number; total: number }): StaffSession {
+  private staffSessionDto(s: SessionRow, t: typeof schema.tables.$inferSelect, stats?: { participants: number; orders: number; unacked: number; total: number }, bill?: BillState): StaffSession {
     return {
+      bill: bill ?? { requestedAt: s.billRequestedAt?.toISOString() ?? null, requestedByOrdinal: null, acknowledgedAt: s.billAcknowledgedAt?.toISOString() ?? null },
       id: s.id,
       status: s.status as StaffSession['status'],
       pin: this.pin.decrypt(s.pinEncrypted),
@@ -547,6 +601,7 @@ export class SessionService {
 
 /** Mensagens de erro do cliente (09-ux/copy.md). */
 const MESSAGES: Record<string, string> = {
+  bill_requested: 'A conta já foi pedida para esta mesa. Cancele o pedido de conta para pedir mais itens.',
   table_not_available: 'Mesa indisponível',
   tenant_blocked: 'Restaurante indisponível',
   device_blocked: 'Você fez várias solicitações recentemente. Aguarde alguns minutos ou chame um garçom.',

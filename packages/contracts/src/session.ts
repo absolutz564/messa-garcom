@@ -18,6 +18,14 @@ export const CustomerRequestSchema = z.object({
 });
 export type CustomerRequest = z.infer<typeof CustomerRequestSchema>;
 
+/** Estado do pedido de conta (RF-68). */
+export const BillStateSchema = z.object({
+  requestedAt: z.string().nullable(),
+  requestedByOrdinal: z.number().int().nullable(),
+  acknowledgedAt: z.string().nullable(),
+});
+export type BillState = z.infer<typeof BillStateSchema>;
+
 /** Visão do cliente sobre a sessão em que está (F05/F06). PIN visível a participantes (PDR-005). */
 export const CustomerSessionSchema = z.object({
   id: z.string().uuid(),
@@ -28,6 +36,9 @@ export const CustomerSessionSchema = z.object({
   participantsCount: z.number().int(),
   openedAt: z.string(),
   lastActivityAt: z.string(),
+  bill: BillStateSchema,
+  /** Total atual do consumo (para a mensagem de conta). */
+  totalCents: z.number().int(),
 });
 export type CustomerSession = z.infer<typeof CustomerSessionSchema>;
 
@@ -71,6 +82,7 @@ export const StaffSessionSchema = z.object({
   ordersCount: z.number().int(),
   unacknowledgedCount: z.number().int(),
   totalCents: z.number().int(),
+  bill: BillStateSchema,
 });
 export type StaffSession = z.infer<typeof StaffSessionSchema>;
 

@@ -57,6 +57,12 @@ Fechamento é imediato para novos pedidos. Pedidos existentes não são afetados
 ## BR-13 Encerrar sessão — PDR-004
 Se existem pedidos `submitted` (não acknowledged) ⇒ 409 `{pending_orders: [...]}`. Com `force=true` ⇒ pedidos ⇒ `cancelled(session_closed_unacknowledged)`, sessão ⇒ `closed(forced_with_pending)`. Sem pendências ⇒ `closed(manual)`. Sempre: PIN inválido, participantes recebem `session.closed`.
 
+## BR-18 Pedido de conta (RF-68)
+- Cliente participante pede a conta ⇒ `sessions.bill_requested_at` (idempotente); evento `bill.requested` para o painel. **Não encerra a sessão.**
+- Com a conta pedida, **clientes não criam pedidos** (409 `bill_requested`); staff ainda pode (correções). O cliente pode desistir enquanto o staff não confirmou.
+- Staff confirma (`bill_acknowledged_at`) ⇒ cliente vê "Sua conta está a caminho" com o total. O encerramento continua sendo a ação explícita após o pagamento (BR-13).
+- "Continuar sessão" após inatividade mantém o estado da conta; "nova sessão" começa sem pedido de conta.
+
 ## BR-14 Garçom
 - Mesa FREE ⇒ abre sessão diretamente (PDR-001), `opened_by=waiter`.
 - Mesa OCCUPIED/INACTIVE ⇒ acesso direto.

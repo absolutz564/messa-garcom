@@ -48,7 +48,7 @@ function StaffPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [sound, setSound] = useState(true);
   const [notif, setNotif] = useState<string>('default');
-  const seen = useRef<{ requests: Set<string>; orders: Set<string>; primed: boolean }>({ requests: new Set(), orders: new Set(), primed: false });
+  const seen = useRef<{ requests: Set<string>; orders: Set<string>; bills: Set<string>; primed: boolean }>({ requests: new Set(), orders: new Set(), bills: new Set(), primed: false });
 
   useEffect(() => {
     setSound(isSoundEnabled());
@@ -72,6 +72,10 @@ function StaffPanel() {
       const st = seen.current;
       const prevReq = st.requests;
       const prevOrd = st.orders;
+      const billTables = t.filter((x) => x.session?.bill.requestedAt && !x.session.bill.acknowledgedAt);
+      const prevBills = st.bills;
+      const newBill = billTables.find((x) => !prevBills.has(x.session!.id));
+      st.bills = new Set(billTables.map((x) => x.session!.id));
       const newReq = r.some((x) => !st.requests.has(x.id));
       const newOrd = o.some((x) => x.status === 'submitted' && !st.orders.has(x.id));
       st.requests = new Set(r.map((x) => x.id));
@@ -81,6 +85,9 @@ function StaffPanel() {
           void chime('request');
           const first = r.find((x) => !prevReq.has(x.id));
           if (first) notify(`${first.table.displayName} — solicitação de atendimento`, first.type === 'resume_session' ? 'Pedido aguardando confirmação (mesa inativa há mais de 1 h)' : 'Cliente pediu para iniciar o atendimento. Toque para liberar.', `req-${first.id}`);
+        } else if (newBill) {
+          void chime('request');
+          notify(`${newBill.displayName} pediu a conta`, `${newBill.session!.ordersCount} pedidos · ${fmt(newBill.session!.totalCents)}`, `bill-${newBill.session!.id}`);
         } else if (newOrd) {
           void chime('order');
           const first = o.find((x) => x.status === 'submitted' && !prevOrd.has(x.id));
@@ -186,6 +193,27 @@ function StaffPanel() {
         </div>
       )}
 
+      {tables.some((t) => t.session?.bill.requestedAt) && (
+        <div className="mb-6 space-y-3">
+          {tables
+            .filter((t) => t.session?.bill.requestedAt)
+            .map((t) => (
+              <BillCard
+                key={t.id}
+                table={t}
+                isOperator={isOperator}
+                busy={busy === t.id}
+                onAck={() => run(t.id, () => api(`/staff/sessions/${t.session!.id}/bill/ack`, { method: 'POST' }))}
+                onClose={async () => {
+                  const s = t.session!;
+                  const ok = await dialog.confirm({ title: `Encerrar o atendimento da ${t.displayName}?`, body: s.unacknowledgedCount > 0 ? `Há ${s.unacknowledgedCount} pedido(s) não lançados — serão cancelados.` : `${s.ordersCount} pedidos · ${money(s.totalCents)}. Confirme após o pagamento.`, confirmLabel: ptBR.staff.bill.close, danger: true });
+                  if (ok) void run(t.id, () => api(`/staff/sessions/${s.id}/close`, { method: 'POST', body: { force: s.unacknowledgedCount > 0 } }));
+                }}
+              />
+            ))}
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           {isOperator && (
@@ -225,6 +253,7 @@ function StaffPanel() {
                   </div>
                 )}
                 {t.pendingRequests > 0 && <div className="mt-2 text-xs font-medium text-amber-700">{t.pendingRequests} solicitação(ões)</div>}
+                {t.session?.bill.requestedAt && <div className="mt-2 inline-block rounded-full bg-violet-600 px-2 py-0.5 text-xs font-medium text-white">💳 {t.session.bill.acknowledgedAt ? ptBR.staff.bill.acked : ptBR.staff.bill.badge}</div>}
               </button>
             ))}
             {tables.length === 0 && <p className="col-span-full py-8 text-center text-sm text-neutral-400">Nenhuma mesa cadastrada.</p>}
@@ -271,6 +300,36 @@ function OrderCard({ order: o, busy, onAck, onCancel }: { order: StaffOrder; bus
         <Button variant="ghost" disabled={busy} onClick={onCancel}>
           {ptBR.staff.order.cancel}
         </Button>
+      </div>
+    </Card>
+  );
+}
+
+function BillCard({ table: t, isOperator, busy, onAck, onClose }: { table: StaffTable; isOperator: boolean; busy: boolean; onAck: () => void; onClose: () => void }) {
+  const s = t.session!;
+  const acked = Boolean(s.bill.acknowledgedAt);
+  return (
+    <Card className={acked ? 'border-violet-200 bg-violet-50/50' : 'border-violet-400 bg-violet-50'}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">💳 {ptBR.staff.bill.title.replace('{table}', t.displayName)}</p>
+          <p className="text-sm text-neutral-700">
+            {ptBR.staff.bill.body.replace('{orderCount}', String(s.ordersCount)).replace('{total}', money(s.totalCents)).replace('{pending}', s.unacknowledgedCount > 0 ? ` · ${s.unacknowledgedCount} não lançado(s)` : '')}
+          </p>
+          <p className="text-xs text-neutral-500">há {ago(s.bill.requestedAt!)}{acked ? ` · ${ptBR.staff.bill.acked}` : ''}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!acked && (
+            <Button disabled={busy} onClick={onAck}>
+              {ptBR.staff.bill.ack}
+            </Button>
+          )}
+          {isOperator && (
+            <Button variant={acked ? 'primary' : 'secondary'} disabled={busy} onClick={onClose}>
+              {ptBR.staff.bill.close}
+            </Button>
+          )}
+        </div>
       </div>
     </Card>
   );
@@ -344,6 +403,12 @@ function TableDetail({ table: t, isOperator, busy, onOpen, onClose, onDeselect, 
             <dd>há {ago(s.lastActivityAt)}</dd>
             <dt className="text-neutral-500">Pessoas</dt>
             <dd>{s.participantsCount}</dd>
+            {s.bill.requestedAt && (
+              <>
+                <dt className="text-neutral-500">Conta</dt>
+                <dd className="font-medium text-violet-700">{s.bill.acknowledgedAt ? ptBR.staff.bill.acked : `pedida há ${ago(s.bill.requestedAt)}`}</dd>
+              </>
+            )}
           </dl>
           <div>
             <p className="mb-1 font-medium">{ptBR.order.consumption}</p>

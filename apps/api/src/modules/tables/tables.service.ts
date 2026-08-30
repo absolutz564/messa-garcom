@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import { schema, type DbHandle, type Tx } from '@messa/db';
 import { generatePublicToken } from '@messa/domain';
@@ -7,6 +7,7 @@ import type { Table } from '@messa/contracts';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
+import { cardPng, cardSvg, cardsPdf, type CardInput } from './qr-card';
 
 /** Mesas e QR (RF-20..25). */
 @Injectable()
@@ -96,6 +97,33 @@ export class TablesService {
   async qrPng(tenantId: string, id: string): Promise<Buffer> {
     const table = await this.get(tenantId, id);
     return QRCode.toBuffer(table.qrUrl, { type: 'png', width: 800, margin: 1, errorCorrectionLevel: 'M' });
+  }
+
+  /** Cartaz imprimível de uma mesa (nome do restaurante, mesa em destaque, QR, slogan). */
+  async cardSvg(tenantId: string, id: string): Promise<string> {
+    return cardSvg((await this.cardInputs(tenantId, [id]))[0]!);
+  }
+  async cardPng(tenantId: string, id: string): Promise<Buffer> {
+    return cardPng((await this.cardInputs(tenantId, [id]))[0]!);
+  }
+  /** RF-24: PDF A4 com todas as mesas ativas (4 por página). */
+  async cardsPdf(tenantId: string): Promise<Uint8Array> {
+    const inputs = await this.cardInputs(tenantId);
+    if (inputs.length === 0) throw new NotFoundException({ code: 'not_found', message: 'Nenhuma mesa ativa' });
+    return cardsPdf(inputs);
+  }
+
+  private async cardInputs(tenantId: string, ids?: string[]): Promise<CardInput[]> {
+    return this.db.withTenantTx(tenantId, async (tx) => {
+      const [tenant] = await tx.select({ name: schema.tenants.name, color: schema.tenants.primaryColor }).from(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      const rows = await tx
+        .select()
+        .from(schema.tables)
+        .where(and(eq(schema.tables.tenantId, tenantId), ids ? inArray(schema.tables.id, ids) : eq(schema.tables.isActive, true)))
+        .orderBy(asc(schema.tables.sortOrder), asc(schema.tables.displayName));
+      if (ids && rows.length === 0) throw new NotFoundException({ code: 'not_found' });
+      return rows.map((r) => ({ restaurantName: tenant!.name, tableName: r.displayName, qrUrl: this.qrUrlFor(r.publicToken), primaryColor: tenant!.color }));
+    });
   }
 
   qrUrlFor(token: string): string {

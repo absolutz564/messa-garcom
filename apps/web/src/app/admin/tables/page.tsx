@@ -39,21 +39,25 @@ export default function TablesPage() {
     });
   }
 
-  async function download(t: Table, ext: 'svg' | 'png') {
-    await run(async () => {
-      const blob = await api<Blob>(`/admin/tables/${t.id}/qr.${ext}`, { raw: true });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `qr-${t.displayName.replace(/\s+/g, '-').toLowerCase()}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+  function saveBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  const slug = (t: Table) => t.displayName.replace(/\s+/g, '-').toLowerCase();
+  async function download(t: Table, kind: 'card.png' | 'card.svg' | 'qr.png' | 'qr.svg') {
+    await run(async () => saveBlob(await api<Blob>(`/admin/tables/${t.id}/${kind}`, { raw: true }), `${kind.startsWith('card') ? 'cartaz' : 'qr'}-${slug(t)}.${kind.split('.')[1]}`));
+  }
+  async function downloadAll() {
+    await run(async () => saveBlob(await api<Blob>('/admin/tables/cards.pdf', { raw: true }), 'messa-qrcodes.pdf'));
   }
 
   return (
     <>
-      <PageTitle>Mesas</PageTitle>
+      <PageTitle actions={<Button variant="secondary" onClick={downloadAll} disabled={!tables.data?.some((t) => t.isActive)}>Baixar todos os cartazes (PDF)</Button>}>Mesas</PageTitle>
       <ErrorText>{error ?? tables.error}</ErrorText>
       <div className="grid gap-6 md:grid-cols-[1fr_360px]">
         <Card>
@@ -97,13 +101,22 @@ export default function TablesPage() {
             <h2 className="text-lg font-semibold">{qr.table.displayName}</h2>
             <div className="mx-auto my-3 w-56 [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: qr.svg }} />
             <p className="mb-3 break-all text-xs text-neutral-500">{qr.table.qrUrl}</p>
-            <div className="flex justify-center gap-2">
-              <Button variant="secondary" onClick={() => download(qr.table, 'png')}>
-                Baixar PNG
+            <div className="space-y-2">
+              <Button className="w-full" onClick={() => download(qr.table, 'card.png')}>
+                Baixar cartaz para imprimir (PNG)
               </Button>
-              <Button variant="secondary" onClick={() => download(qr.table, 'svg')}>
-                Baixar SVG
-              </Button>
+              <p className="text-xs text-neutral-500">Cartaz com o nome do restaurante, a mesa em destaque, o QR e o slogan — pronto para colar na mesa.</p>
+              <div className="flex justify-center gap-2 text-xs">
+                <button type="button" className="text-neutral-500 underline" onClick={() => download(qr.table, 'card.svg')}>
+                  cartaz SVG
+                </button>
+                <button type="button" className="text-neutral-500 underline" onClick={() => download(qr.table, 'qr.png')}>
+                  só o QR (PNG)
+                </button>
+                <button type="button" className="text-neutral-500 underline" onClick={() => download(qr.table, 'qr.svg')}>
+                  só o QR (SVG)
+                </button>
+              </div>
             </div>
             <button
               className="mt-4 text-xs text-neutral-500 underline"

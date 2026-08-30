@@ -30,6 +30,8 @@ RUN pnpm --filter @messa/domain --filter @messa/contracts --filter @messa/db bui
 # ---------- runtime ----------
 FROM node:22-slim AS runtime
 ENV NODE_ENV=production API_PORT=8080 UPLOADS_DIR=/data/uploads
+# Fontes para renderizar o texto dos cartazes de QR (sharp/librsvg)
+RUN apt-get update && apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out .
 RUN mkdir -p /data/uploads && chown -R node:node /data /app

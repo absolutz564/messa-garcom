@@ -44,6 +44,32 @@ export class TablesController {
     return this.tables.rotateToken(p.tenantId!, id, p.userId);
   }
 
+  /** Cartaz pronto para imprimir (RF-23/24). */
+  @Get('cards.pdf')
+  @Roles('admin')
+  @Header('Content-Type', 'application/pdf')
+  @Header('Content-Disposition', 'attachment; filename="messa-qrcodes.pdf"')
+  @Header('Cache-Control', 'no-store')
+  async cardsPdf(@CurrentPrincipal() p: StaffPrincipal) {
+    return Buffer.from(await this.tables.cardsPdf(p.tenantId!));
+  }
+
+  @Get(':id/card.png')
+  @Roles('admin')
+  @Header('Content-Type', 'image/png')
+  @Header('Cache-Control', 'no-store')
+  cardPng(@CurrentPrincipal() p: StaffPrincipal, @Param('id', ParseUUIDPipe) id: string) {
+    return this.tables.cardPng(p.tenantId!, id);
+  }
+
+  @Get(':id/card.svg')
+  @Roles('admin')
+  @Header('Content-Type', 'image/svg+xml')
+  @Header('Cache-Control', 'no-store')
+  cardSvg(@CurrentPrincipal() p: StaffPrincipal, @Param('id', ParseUUIDPipe) id: string) {
+    return this.tables.cardSvg(p.tenantId!, id);
+  }
+
   @Get(':id/qr.svg')
   @Roles('admin')
   @Header('Content-Type', 'image/svg+xml')

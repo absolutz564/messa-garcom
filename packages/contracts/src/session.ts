@@ -24,12 +24,14 @@ export const CustomerSessionSchema = z.object({
   status: SessionStatusSchema,
   pin: z.string(),
   table: z.object({ id: z.string().uuid(), displayName: z.string() }),
-  participant: z.object({ id: z.string().uuid(), ordinal: z.number().int() }),
+  participant: z.object({ id: z.string().uuid(), ordinal: z.number().int(), name: z.string().nullable() }),
   participantsCount: z.number().int(),
   openedAt: z.string(),
   lastActivityAt: z.string(),
 });
 export type CustomerSession = z.infer<typeof CustomerSessionSchema>;
+
+export const UpdateParticipantSchema = z.object({ name: z.string().trim().max(30).nullable() });
 
 export const JoinSessionSchema = z.object({ pin: z.string().regex(/^\d{4}$/, 'PIN de 4 dígitos') });
 

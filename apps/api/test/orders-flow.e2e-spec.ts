@@ -19,7 +19,7 @@ const PASSWORD = 'password123';
 class Phone {
   cookies: Record<string, string> = {};
   constructor(private readonly app: NestFastifyApplication) {}
-  async call(method: 'GET' | 'POST', url: string, payload?: Record<string, unknown>, headers: Record<string, string> = {}) {
+  async call(method: 'GET' | 'POST' | 'PATCH', url: string, payload?: Record<string, unknown>, headers: Record<string, string> = {}) {
     const res = await this.app.inject({ method, url, payload, headers: { ...headers, cookie: Object.entries(this.cookies).map(([k, v]) => `${k}=${v}`).join('; ') } });
     const set = res.headers['set-cookie'];
     for (const c of Array.isArray(set) ? set : set ? [set] : []) {
@@ -101,6 +101,10 @@ describe('orders flow (e2e)', () => {
 
   it('F07: customer orders → snapshot/total server-side → operator queue → ack; idempotent; price change does not affect order', async () => {
     const { phone: a, sessionId } = await seatCustomer();
+    // PDR-012 rev.: nome informal opcional aparece no pedido para o garçom
+    const named = await a.call('PATCH', '/public/session/me', { name: '  Gabi  ' });
+    expect(named.statusCode).toBe(200);
+    expect(named.json().participant.name).toBe('Gabi');
     const k = key();
     const bad = await a.call('POST', '/public/session/orders', { items: [{ productId: burger, quantity: 2, priceCents: 1 }] });
     expect(bad.statusCode).toBe(400); // sem Idempotency-Key
@@ -112,7 +116,7 @@ describe('orders flow (e2e)', () => {
     expect(order.sequenceNo).toBe(1);
     expect(order.totalCents).toBe(2 * 2990 + 3 * 990);
     expect(order.items.find((i: { productId: string }) => i.productId === burger).notes).toBe('sem cebola');
-    expect(order.createdBy).toEqual({ kind: 'customer', participantOrdinal: 1 });
+    expect(order.createdBy).toEqual({ kind: 'customer', participantOrdinal: 1, participantName: 'Gabi' });
     // idempotente
     const again = await a.call('POST', '/public/session/orders', { items: [{ productId: beer, quantity: 1 }] }, k);
     expect(again.json().order.id).toBe(order.id);
@@ -135,8 +139,10 @@ describe('orders flow (e2e)', () => {
     const map = (await staff(operator, 'GET', '/staff/tables')).json().find((t: { id: string }) => t.id === table.id);
     expect(map.session.ordersCount).toBe(1);
     expect(map.session.totalCents).toBe(order.totalCents);
-    // encerra sem pendências
+    // encerra sem pendências; nome é apagado ao encerrar (LGPD)
     expect((await staff(operator, 'POST', `/staff/sessions/${sessionId}/close`, {})).statusCode).toBe(200);
+    const parts = await db.withTenantTx(tenantId, (tx) => tx.select().from(schema.sessionParticipants).where(eq(schema.sessionParticipants.sessionId, sessionId)));
+    expect(parts.every((x) => x.displayName === null)).toBe(true);
     await staff(admin, 'PATCH', `/admin/products/${burger}`, { priceCents: 2990 });
   });
 

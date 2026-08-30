@@ -233,7 +233,7 @@ export function MenuView({ table, menu, token }: { table: PublicTable; menu: Men
         <a href="/privacidade" className="text-[10px] text-neutral-400 underline">privacidade</a>
       </header>
 
-      {ui.kind === 'session' && <SessionBanner session={ui.session} />}
+      {ui.kind === 'session' && <SessionBanner session={ui.session} onName={(session) => setUi({ ...ui, session })} />}
 
       {inSession && (
         <div className="sticky top-0 z-20 grid grid-cols-3 border-b border-neutral-100 bg-white text-sm">
@@ -365,10 +365,41 @@ export function MenuView({ table, menu, token }: { table: PublicTable; menu: Men
   );
 }
 
-function SessionBanner({ session }: { session: CustomerSession }) {
+function SessionBanner({ session, onName }: { session: CustomerSession; onName: (s: CustomerSession) => void }) {
+  const [name, setName] = useState(session.participant.name ?? '');
+  const [editing, setEditing] = useState(!session.participant.name);
+  async function save() {
+    try {
+      onName(await publicApi.setName(name.trim() || null));
+      setEditing(false);
+    } catch {
+      /* mantém o campo */
+    }
+  }
   return (
     <div className="mx-4 mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-center">
-      <p className="text-xs uppercase tracking-wide text-neutral-500">Atendimento em andamento · Cliente {session.participant.ordinal}</p>
+      <p className="text-xs uppercase tracking-wide text-neutral-500">
+        Atendimento em andamento · {session.participant.name ? session.participant.name : `Cliente ${session.participant.ordinal}`}
+      </p>
+      {editing ? (
+        <form
+          className="mx-auto mt-2 flex max-w-xs items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+        >
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder={ptBR.order.namePrompt} className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm" />
+          <button type="submit" className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">
+            OK
+          </button>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setEditing(true)} className="mt-1 text-xs text-neutral-500 underline">
+          alterar nome
+        </button>
+      )}
+      {editing && <p className="mt-1 text-[11px] text-neutral-400">{ptBR.order.nameHint}</p>}
       <p className="text-sm text-neutral-700">
         Compartilhe com sua mesa: <span className="font-mono text-2xl font-bold tracking-[0.25em] text-brand">{session.pin}</span>
       </p>
@@ -388,7 +419,7 @@ function Bill({ consumption, onCancel }: { consumption: SessionConsumption | nul
         <div key={o.id} className={`rounded-xl border border-neutral-200 p-3 ${o.status === 'cancelled' ? 'opacity-50' : ''}`}>
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">
-              Pedido #{o.sequenceNo} · {o.createdBy.kind === 'customer' ? `Cliente ${o.createdBy.participantOrdinal}` : 'Garçom'}
+              Pedido #{o.sequenceNo} · {o.createdBy.kind === 'customer' ? (o.createdBy.participantName ?? `Cliente ${o.createdBy.participantOrdinal}`) : 'Garçom'}
             </span>
             <span className={`rounded-full px-2 py-0.5 text-xs ${o.status === 'acknowledged' ? 'bg-green-100 text-green-800' : o.status === 'cancelled' ? 'bg-neutral-100' : 'bg-amber-100 text-amber-800'}`}>{ptBR.order.status[o.status]}</span>
           </div>

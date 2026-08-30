@@ -25,6 +25,7 @@ export default function PrivacyPage() {
             <strong>Vínculo com o atendimento</strong> — identifica que este celular participa do atendimento da mesa atual. Expira quando o atendimento é encerrado.
           </li>
         </ul>
+        <p>Você pode, se quiser, informar um <strong>primeiro nome ou apelido</strong> para que o garçom saiba a quem entregar o pedido. É opcional, fica visível apenas para a equipe do restaurante durante o atendimento e é <strong>apagado automaticamente quando o atendimento é encerrado</strong>.</p>
         <p>Os pedidos feitos ficam registrados para o restaurante (itens, valores, horários), sem identificação pessoal. O endereço IP pode constar em registros técnicos de segurança por até 30 dias. Não usamos rastreamento por impressão digital do navegador nem cookies de publicidade.</p>
 
         <h2 className="text-lg font-semibold">3. Dados de funcionários dos restaurantes</h2>

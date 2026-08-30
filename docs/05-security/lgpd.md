@@ -6,10 +6,11 @@
 | Funcionário | nome, e-mail, hash de senha | execução de contrato (tenant) | acesso ao sistema | enquanto membership ativa + 12 meses (logs) |
 | Funcionário | dispositivo (refresh token, last_seen) | legítimo interesse (segurança) | revogação de acesso | até revogação + 90 dias |
 | Cliente | `device_id` pseudônimo (cookie) | legítimo interesse (anti-abuso) | anti-spam | 365 dias sem uso ⇒ apagar |
+| Cliente | primeiro nome/apelido **opcional** (`session_participants.display_name`, PDR-012 rev.) | execução do serviço | entrega do pedido pelo garçom | apagado ao encerrar a sessão (`closeSessionRow`) |
 | Cliente | IP em logs | legítimo interesse (segurança) | rate limit, incidentes | 30 dias |
 | Cliente | pedidos (sem identificação) | — (não identificam pessoa) | operação | por tenant; padrão 5 anos (fiscal do restaurante é do PDV, não nosso) |
 
-**Cliente não fornece nome, telefone, e-mail, CPF nem localização no MVP (PDR-012).** Não há fingerprinting de navegador.
+**Cliente não fornece telefone, e-mail, CPF nem localização; o primeiro nome é opcional e efêmero (PDR-012 rev.).** Não há fingerprinting de navegador.
 
 ## Papéis LGPD
 - **Messa** = operador dos dados dos clientes finais e dos funcionários (em nome do tenant), e controlador dos dados de conta do tenant.

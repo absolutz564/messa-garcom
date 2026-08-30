@@ -74,7 +74,7 @@ export default function StaffPage() {
         } else if (newOrd) {
           void chime('order');
           const first = o.find((x) => x.status === 'submitted' && !prevOrd.has(x.id));
-          if (first) notify(`${first.table.displayName} — pedido #${first.sequenceNo} (${fmt(first.totalCents)})`, first.items.map((i) => `${i.quantity}× ${i.name}`).join(', '), `ord-${first.id}`);
+          if (first) notify(`${first.table.displayName}${first.createdBy.kind === 'customer' && first.createdBy.participantName ? ` · ${first.createdBy.participantName}` : ''} — pedido #${first.sequenceNo} (${fmt(first.totalCents)})`, first.items.map((i) => `${i.quantity}× ${i.name}`).join(', '), `ord-${first.id}`);
         }
       }
       st.primed = true;
@@ -241,7 +241,7 @@ function OrderCard({ order: o, busy, onAck, onCancel }: { order: StaffOrder; bus
     <Card className="flex flex-wrap items-center justify-between gap-3 border-amber-200">
       <div className="min-w-0 flex-1">
         <p className="font-semibold">
-          {o.table.displayName} · Pedido #{o.sequenceNo} <span className="text-xs font-normal text-neutral-500">há {ago(o.createdAt)} · {o.createdBy.kind === 'customer' ? `Cliente ${o.createdBy.participantOrdinal}` : o.createdBy.userName}</span>
+          {o.table.displayName} · Pedido #{o.sequenceNo} <span className="text-xs font-normal text-neutral-500">há {ago(o.createdAt)} · {o.createdBy.kind === 'customer' ? (o.createdBy.participantName ? `${o.createdBy.participantName} (cliente ${o.createdBy.participantOrdinal})` : `Cliente ${o.createdBy.participantOrdinal}`) : o.createdBy.userName}</span>
         </p>
         <ul className="mt-1 text-sm text-neutral-700">
           {o.items.map((i) => (
@@ -344,7 +344,7 @@ function TableDetail({ table: t, isOperator, busy, onOpen, onClose, onDeselect }
                   <li key={o.id} className={`py-1 ${o.status === 'cancelled' ? 'line-through opacity-50' : ''}`}>
                     <div className="flex justify-between">
                       <span>
-                        #{o.sequenceNo} · {ptBR.order.status[o.status]}
+                        #{o.sequenceNo} · {ptBR.order.staffStatus[o.status]}{o.createdBy.kind === 'customer' && o.createdBy.participantName ? ` · ${o.createdBy.participantName}` : ''}
                       </span>
                       <span>{money(o.totalCents)}</span>
                     </div>

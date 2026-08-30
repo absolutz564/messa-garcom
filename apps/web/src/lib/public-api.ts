@@ -28,6 +28,7 @@ export const publicApi = {
   requestStatus: (token: string, id: string) => call<CustomerRequest>(`/public/tables/${token}/requests/${id}`),
   join: (token: string, pin: string) => call<CustomerSession>(`/public/tables/${token}/join`, { method: 'POST', body: JSON.stringify({ pin }) }),
   session: () => call<CustomerSession>('/public/session'),
+  setName: (name: string | null) => call<CustomerSession>('/public/session/me', { method: 'PATCH', body: JSON.stringify({ name }) }),
   createOrder: (body: CreateOrder, idempotencyKey: string) => call<CreateOrderResult>('/public/session/orders', { method: 'POST', body: JSON.stringify(body), headers: { 'idempotency-key': idempotencyKey } }),
   consumption: () => call<SessionConsumption>('/public/session/orders'),
   cancelOrder: (id: string) => call<Order>(`/public/session/orders/${id}/cancel`, { method: 'POST' }),

@@ -1,0 +1,1 @@
+ALTER TABLE "session_participants" ADD COLUMN "display_name" text;

@@ -301,6 +301,8 @@ export const sessionParticipants = pgTable(
       .references(() => devices.id),
     /** "Cliente N" — PDR-012. */
     ordinal: integer('ordinal').notNull(),
+    /** Primeiro nome/apelido opcional (PDR-012 rev. 2026-08-29); apagado ao encerrar a sessão (LGPD). */
+    displayName: text('display_name'),
     joinedAt: ts('joined_at').notNull().defaultNow(),
     joinedVia: text('joined_via').notNull(),
   },

@@ -43,7 +43,11 @@ export const ptBR = {
     cart: 'Seu pedido',
     consumption: 'Consumo da mesa',
     empty: 'Nenhum pedido ainda.',
-    status: { pending_confirmation: 'Aguardando confirmação', submitted: 'Enviado', acknowledged: 'Lançado', cancelled: 'Cancelado' },
+    /** Rótulos para o CLIENTE (o staff usa "Lançado no caixa"). */
+    status: { pending_confirmation: 'Aguardando confirmação', submitted: 'Enviado', acknowledged: 'Confirmado', cancelled: 'Cancelado' },
+    staffStatus: { pending_confirmation: 'Aguardando confirmação', submitted: 'A lançar', acknowledged: 'Lançado', cancelled: 'Cancelado' },
+    namePrompt: 'Seu nome (opcional)',
+    nameHint: 'Só o primeiro nome, para o garçom saber a quem entregar. Apagado ao fim do atendimento.',
     cancelOwn: 'Cancelar',
     notesPlaceholder: 'Observação (ex.: sem cebola)',
     rejectedItems: 'Alguns itens não estão mais disponíveis e foram removidos: {items}',

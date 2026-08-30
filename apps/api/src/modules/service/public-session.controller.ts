@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Header, HttpCode, Inject, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Inject, Param, Patch, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { JoinSessionSchema } from '@messa/contracts';
+import { JoinSessionSchema, UpdateParticipantSchema } from '@messa/contracts';
 import { DomainError } from '@messa/domain';
 import { Public } from '../../common/decorators';
 import { ZodPipe } from '../../common/zod.pipe';
@@ -54,6 +54,13 @@ export class PublicSessionController {
     const { sessionId, participantId } = await this.sessions.join(t.tenantId, t.tableId, deviceId, body.pin);
     this.customer.setParticipant(reply, { p: participantId, s: sessionId, t: t.tenantId, d: deviceId });
     return this.sessions.customerSession(t.tenantId, sessionId, participantId);
+  }
+
+  /** Nome informal do participante (opcional). */
+  @Patch('session/me')
+  me(@Req() req: FastifyRequest, @Body(new ZodPipe(UpdateParticipantSchema)) body: { name: string | null }) {
+    const c = this.customer.requireParticipant(req);
+    return this.sessions.setParticipantName(c.t, c.s, c.p, body.name);
   }
 
   /** Sessão atual do participante. 410 quando encerrada (cookie é limpo). */

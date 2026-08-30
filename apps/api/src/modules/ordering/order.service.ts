@@ -200,7 +200,7 @@ export class OrderService {
   private async orders(tx: Tx, ids: string[]): Promise<Order[]> {
     if (ids.length === 0) return [];
     const rows = await tx
-      .select({ o: schema.orders, ordinal: schema.sessionParticipants.ordinal, userName: schema.users.name })
+      .select({ o: schema.orders, ordinal: schema.sessionParticipants.ordinal, participantName: schema.sessionParticipants.displayName, userName: schema.users.name })
       .from(schema.orders)
       .leftJoin(schema.sessionParticipants, eq(schema.sessionParticipants.id, schema.orders.participantId))
       .leftJoin(schema.users, eq(schema.users.id, schema.orders.userId))
@@ -209,16 +209,16 @@ export class OrderService {
     const items = await tx.select().from(schema.orderItems).where(inArray(schema.orderItems.orderId, ids));
     const byOrder = new Map<string, typeof items>();
     for (const i of items) byOrder.set(i.orderId, [...(byOrder.get(i.orderId) ?? []), i]);
-    return rows.map(({ o, ordinal, userName }) => this.dto(o, byOrder.get(o.id) ?? [], ordinal, userName));
+    return rows.map(({ o, ordinal, participantName, userName }) => this.dto(o, byOrder.get(o.id) ?? [], ordinal, participantName, userName));
   }
 
-  private dto(o: OrderRow, items: (typeof schema.orderItems.$inferSelect)[], ordinal: number | null, userName: string | null): Order {
+  private dto(o: OrderRow, items: (typeof schema.orderItems.$inferSelect)[], ordinal: number | null, participantName: string | null, userName: string | null): Order {
     return {
       id: o.id,
       sessionId: o.sessionId,
       sequenceNo: o.sequenceNo,
       status: o.status as Order['status'],
-      createdBy: o.createdByKind === 'customer' ? { kind: 'customer', participantOrdinal: ordinal ?? 0 } : { kind: 'staff', userName: userName ?? 'Equipe' },
+      createdBy: o.createdByKind === 'customer' ? { kind: 'customer', participantOrdinal: ordinal ?? 0, participantName: participantName ?? null } : { kind: 'staff', userName: userName ?? 'Equipe' },
       items: items.map((i) => ({ id: i.id, productId: i.productId, name: i.productNameSnapshot, unitPriceCents: i.unitPriceCentsSnapshot, quantity: i.quantity, notes: i.notes })),
       totalCents: o.totalCents,
       createdAt: o.createdAt.toISOString(),

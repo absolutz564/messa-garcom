@@ -176,12 +176,26 @@ export class SessionService {
         status: session.status as CustomerSession['status'],
         pin: this.pin.decrypt(session.pinEncrypted),
         table: table!,
-        participant: { id: participant.id, ordinal: participant.ordinal },
+        participant: { id: participant.id, ordinal: participant.ordinal, name: participant.displayName },
         participantsCount: Number(nRow?.n ?? 0),
         openedAt: session.openedAt.toISOString(),
         lastActivityAt: session.lastActivityAt.toISOString(),
       };
     });
+  }
+
+  /** PDR-012 (rev.): primeiro nome opcional, só para entrega; apagado ao encerrar. */
+  async setParticipantName(tenantId: string, sessionId: string, participantId: string, name: string | null): Promise<CustomerSession> {
+    await this.db.withTenantTx(tenantId, async (tx) => {
+      const clean = name?.trim().slice(0, 30) || null;
+      const rows = await tx
+        .update(schema.sessionParticipants)
+        .set({ displayName: clean })
+        .where(and(eq(schema.sessionParticipants.id, participantId), eq(schema.sessionParticipants.sessionId, sessionId)))
+        .returning({ id: schema.sessionParticipants.id });
+      if (rows.length === 0) throw new NotFoundException({ code: 'not_found' });
+    });
+    return this.customerSession(tenantId, sessionId, participantId);
   }
 
   // =====================================================================
@@ -451,6 +465,8 @@ export class SessionService {
   }
 
   private async closeSessionRow(tx: Tx, tenantId: string, session: SessionRow, reason: string, actor: Actor): Promise<SessionRow> {
+    // LGPD: nomes informais dos participantes só servem durante o atendimento.
+    await tx.update(schema.sessionParticipants).set({ displayName: null }).where(eq(schema.sessionParticipants.sessionId, session.id));
     const [closed] = await tx
       .update(schema.sessions)
       .set({ status: 'closed', closedAt: new Date(), closedByUserId: actor.id ?? null, closeReason: reason })

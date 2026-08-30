@@ -29,7 +29,7 @@ export const OrderSchema = z.object({
   sequenceNo: z.number().int(),
   status: OrderStatusSchema,
   createdBy: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('customer'), participantOrdinal: z.number().int() }),
+    z.object({ kind: z.literal('customer'), participantOrdinal: z.number().int(), participantName: z.string().nullable() }),
     z.object({ kind: z.literal('staff'), userName: z.string() }),
   ]),
   items: z.array(OrderItemSchema),

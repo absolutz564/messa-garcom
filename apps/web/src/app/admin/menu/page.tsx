@@ -132,7 +132,7 @@ export default function MenuPage() {
               </div>
               <ul className="divide-y divide-neutral-100">
                 {(byCategory.get(c.id) ?? []).map((p) => (
-                  <li key={p.id} className="flex items-center gap-3 py-2">
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 py-2">
                     {p.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.imageUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />

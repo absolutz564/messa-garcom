@@ -28,11 +28,10 @@ jobs:
       COOKIE_SECRET: ci-cookie-secret-ci-cookie-secret-ci
       PIN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # versão do pnpm vem do campo packageManager do package.json
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm

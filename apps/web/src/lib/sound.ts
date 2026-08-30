@@ -34,43 +34,50 @@ export async function unlockAudio(): Promise<boolean> {
   }
 }
 
-function tone(freq: number, at: number, dur: number, gain = 0.9) {
+/**
+ * Sino de balcão sintetizado (síntese aditiva: parciais inarmônicos com decaimentos diferentes).
+ * Soa como campainha de recepção/iFood: ataque forte, brilho metálico, cauda ~0,9 s.
+ */
+function bell(at: number, base = 1760, gain = 1.0) {
   if (!ctx) return;
-  const o = ctx.createOscillator();
-  const g = ctx.createGain();
-  o.type = 'square'; // timbre agudo e penetrante: atravessa o barulho de bar
-  o.frequency.value = freq;
-  g.gain.setValueAtTime(0, at);
-  g.gain.linearRampToValueAtTime(gain, at + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.001, at + dur);
-  o.connect(g).connect(ctx.destination);
-  o.start(at);
-  o.stop(at + dur + 0.05);
+  const partials: Array<[number, number, number]> = [
+    [1.0, 1.0, 0.9],   // [razão de frequência, amplitude, duração]
+    [2.0, 0.55, 0.7],
+    [2.76, 0.4, 0.5],
+    [4.07, 0.25, 0.35],
+    [5.4, 0.15, 0.25],
+  ];
+  const master = ctx.createGain();
+  master.gain.value = gain;
+  master.connect(ctx.destination);
+  for (const [ratio, amp, dur] of partials) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = base * ratio;
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(amp, at + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0005, at + dur);
+    o.connect(g).connect(master);
+    o.start(at);
+    o.stop(at + dur + 0.05);
+  }
 }
 
 export type Chime = 'request' | 'order' | 'test';
 
-/** request: campainha de 3 notas repetida 3× (~2,5 s). order: 2 notas × 2. */
+/** request: 5 toques de sino (~4 s, estilo iFood). order: 2 toques. test: 1 toque. */
 export async function chime(kind: Chime) {
   if (!isSoundEnabled()) return;
   if (!(await unlockAudio()) || !ctx) return;
   const t = ctx.currentTime + 0.02;
   if (kind === 'request') {
-    for (let i = 0; i < 3; i++) {
-      const b = t + i * 0.85;
-      tone(1047, b, 0.2);
-      tone(1319, b + 0.22, 0.2);
-      tone(1760, b + 0.44, 0.35);
-    }
+    for (let i = 0; i < 5; i++) bell(t + i * 0.75, i % 2 === 0 ? 1760 : 2093);
   } else if (kind === 'order') {
-    for (let i = 0; i < 2; i++) {
-      const b = t + i * 0.6;
-      tone(880, b, 0.15);
-      tone(1319, b + 0.18, 0.3);
-    }
+    bell(t, 1760);
+    bell(t + 0.6, 2093);
   } else {
-    tone(1047, t, 0.2);
-    tone(1319, t + 0.22, 0.3);
+    bell(t, 1760);
   }
 }
 

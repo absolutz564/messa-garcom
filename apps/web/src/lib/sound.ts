@@ -66,3 +66,41 @@ export async function chime(kind: Chime) {
     tone(880, t, 0.15);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Notificações do sistema (balão no canto da tela) — funcionam com a aba em segundo plano
+// ou o navegador minimizado; exigem HTTPS e permissão concedida a partir de um clique.
+// ---------------------------------------------------------------------------
+
+export function notificationsSupported(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
+export function notificationPermission(): NotificationPermission | 'unsupported' {
+  return notificationsSupported() ? Notification.permission : 'unsupported';
+}
+
+/** Chamar a partir de um clique. */
+export async function requestNotifications(): Promise<NotificationPermission | 'unsupported'> {
+  if (!notificationsSupported()) return 'unsupported';
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return Notification.permission;
+  }
+}
+
+/** Mostra a notificação só quando a aba não está visível; `tag` evita duplicatas. */
+export function notify(title: string, body: string, tag: string) {
+  if (!notificationsSupported() || Notification.permission !== 'granted') return;
+  if (document.visibilityState === 'visible' && document.hasFocus()) return;
+  try {
+    const n = new Notification(title, { body, tag, icon: '/icon.svg', badge: '/icon.svg', requireInteraction: true, lang: 'pt-BR' });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch {
+    /* alguns navegadores móveis exigem service worker; o som continua */
+  }
+}

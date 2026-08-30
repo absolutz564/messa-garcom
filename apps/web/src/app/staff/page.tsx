@@ -6,7 +6,8 @@ import { api, getSession } from '@/lib/api';
 import { errorMessage } from '@/lib/use-api';
 import { money } from '@/lib/format';
 import { useRealtime } from '@/lib/realtime';
-import { chime, isSoundEnabled, setSoundEnabled, unlockAudio } from '@/lib/sound';
+import { chime, isSoundEnabled, notificationPermission, notify, requestNotifications, setSoundEnabled, unlockAudio } from '@/lib/sound';
+import { money as fmt } from '@/lib/format';
 import { StaffShell } from '@/components/staff-shell';
 import { Badge, Button, Card, ErrorText, PageTitle } from '@/components/ui';
 
@@ -36,9 +37,13 @@ export default function StaffPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [sound, setSound] = useState(true);
+  const [notif, setNotif] = useState<string>('default');
   const seen = useRef<{ requests: Set<string>; orders: Set<string>; primed: boolean }>({ requests: new Set(), orders: new Set(), primed: false });
 
-  useEffect(() => setSound(isSoundEnabled()), []);
+  useEffect(() => {
+    setSound(isSoundEnabled());
+    setNotif(notificationPermission());
+  }, []);
 
   const reload = useCallback(async () => {
     try {
@@ -55,13 +60,22 @@ export default function StaffPage() {
       setError(null);
       // Toca ao detectar solicitação/pedido novos (socket ou polling), exceto na primeira carga.
       const st = seen.current;
+      const prevReq = st.requests;
+      const prevOrd = st.orders;
       const newReq = r.some((x) => !st.requests.has(x.id));
       const newOrd = o.some((x) => x.status === 'submitted' && !st.orders.has(x.id));
       st.requests = new Set(r.map((x) => x.id));
       st.orders = new Set(o.filter((x) => x.status === 'submitted').map((x) => x.id));
       if (st.primed) {
-        if (newReq) void chime('request');
-        else if (newOrd) void chime('order');
+        if (newReq) {
+          void chime('request');
+          const first = r.find((x) => !prevReq.has(x.id));
+          if (first) notify(`${first.table.displayName} — solicitação de atendimento`, first.type === 'resume_session' ? 'Pedido aguardando confirmação (mesa inativa há mais de 1 h)' : 'Cliente pediu para iniciar o atendimento. Toque para liberar.', `req-${first.id}`);
+        } else if (newOrd) {
+          void chime('order');
+          const first = o.find((x) => x.status === 'submitted' && !prevOrd.has(x.id));
+          if (first) notify(`${first.table.displayName} — pedido #${first.sequenceNo} (${fmt(first.totalCents)})`, first.items.map((i) => `${i.quantity}× ${i.name}`).join(', '), `ord-${first.id}`);
+        }
       }
       st.primed = true;
     } catch (e) {
@@ -122,11 +136,13 @@ export default function StaffPage() {
                 if (next) {
                   await unlockAudio();
                   void chime('test');
+                  setNotif(await requestNotifications());
                 }
               }}
             >
-              {sound ? '🔔 Som ligado' : '🔕 Som desligado'}
+              {sound ? (notif === 'granted' ? '🔔 Som + notificações' : '🔔 Som ligado') : '🔕 Som desligado'}
             </Button>
+            {sound && notif === 'denied' && <span className="self-center text-xs text-neutral-500" title="Permita notificações nas configurações do site (cadeado na barra de endereço)">notificações bloqueadas</span>}
             {areas.map((a) => (
               <Button key={a.key} variant={a.isOpen ? 'secondary' : 'danger'} disabled={!isOperator || busy === a.key} onClick={() => run(a.key, () => api(`/admin/service-areas/${a.key}`, { method: 'PATCH', body: { isOpen: !a.isOpen } }))}>
                 {a.isOpen ? ptBR.staff.area.close[a.key] : ptBR.staff.area.open[a.key]}

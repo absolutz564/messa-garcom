@@ -10,6 +10,8 @@ import { hash } from '@node-rs/argon2';
 import { schema, type DbHandle } from '@messa/db';
 import { AppModule } from '../src/app.module';
 import { DomainErrorFilter } from '../src/common/filters/domain-error.filter';
+import { corsOptions } from '../src/config/cors';
+import { loadConfig } from '../src/config/config';
 import { DB } from '../src/modules/db/db.module';
 import { createPlatformAdmin } from './helpers';
 
@@ -29,6 +31,7 @@ describe('concurrency & ip rate limit (e2e)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     app.useGlobalFilters(new DomainErrorFilter());
+    app.enableCors(corsOptions(loadConfig()));
     await app.register(fastifyCookie as never, { secret: process.env.COOKIE_SECRET });
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -105,6 +108,16 @@ describe('concurrency & ip rate limit (e2e)', () => {
     expect(s!.status).toBe('closed');
     // qualquer participante que entrou o fez antes do closed_at
     for (const p of parts) expect(p.joinedAt.getTime()).toBeLessThanOrEqual(s!.closedAt!.getTime() + 5);
+  });
+
+  it('CORS preflight allows PATCH/DELETE with credentials and Idempotency-Key for the web origin', async () => {
+    for (const method of ['PATCH', 'DELETE', 'POST']) {
+      const res = await app.inject({ method: 'OPTIONS', url: '/admin/products/00000000-0000-0000-0000-000000000000', headers: { origin: process.env.WEB_PUBLIC_URL ?? 'http://localhost:3000', 'access-control-request-method': method, 'access-control-request-headers': 'authorization,content-type,idempotency-key' } });
+      expect(res.statusCode).toBe(204);
+      expect(String(res.headers['access-control-allow-methods'])).toContain(method);
+      expect(String(res.headers['access-control-allow-headers']).toLowerCase()).toContain('idempotency-key');
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+    }
   });
 
   it('login is rate limited per IP after 30 attempts / 15 min', async () => {

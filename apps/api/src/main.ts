@@ -13,6 +13,7 @@ import { UPLOADS_DIR } from './modules/storage/storage.module';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { loadConfig } from './config/config';
+import { corsOptions } from './config/cors';
 import { DomainErrorFilter } from './common/filters/domain-error.filter';
 
 async function bootstrap() {
@@ -24,7 +25,7 @@ async function bootstrap() {
   );
   app.useLogger(app.get(Logger));
   app.useGlobalFilters(new DomainErrorFilter());
-  app.enableCors({ origin: [config.WEB_PUBLIC_URL], credentials: true });
+  app.enableCors(corsOptions(config));
   app.enableShutdownHooks();
 
   await app.register(fastifyCookie as never, { secret: config.COOKIE_SECRET });

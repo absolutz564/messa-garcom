@@ -7,6 +7,7 @@ import type { LoginResponse, Role } from '@messa/contracts';
 import { getSession, logout, refreshSession } from '@/lib/api';
 import { hexToRgbTriplet } from '@/lib/format';
 import { Button } from './ui';
+import { DialogProvider } from './dialog';
 
 interface NavItem {
   href: string;
@@ -58,6 +59,7 @@ export function StaffShell({
 
   const brand = session.activeTenant ? undefined : '225 29 72';
   return (
+    <DialogProvider>
     <div className="min-h-screen bg-neutral-50" style={brand ? ({ '--brand': brand } as React.CSSProperties) : undefined}>
       <BrandVar />
       <header className="border-b border-neutral-200 bg-white">
@@ -95,6 +97,7 @@ export function StaffShell({
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
     </div>
+    </DialogProvider>
   );
 }
 

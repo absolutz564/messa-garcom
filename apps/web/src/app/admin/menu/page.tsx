@@ -7,6 +7,7 @@ import { errorMessage, useApi } from '@/lib/use-api';
 import { money, parseMoney } from '@/lib/format';
 import { Badge, Button, Card, ErrorText, Field, Input, PageTitle, Select, Textarea } from '@/components/ui';
 import { ImageUpload } from '@/components/image-upload';
+import { useDialog } from '@/components/dialog';
 
 type ProductForm = {
   id?: string;
@@ -30,6 +31,7 @@ const emptyProduct = (categoryId = '', serviceAreaId = ''): ProductForm => ({
 });
 
 export default function MenuPage() {
+  const dialog = useDialog();
   const categories = useApi<Category[]>('/admin/categories');
   const products = useApi<Product[]>('/admin/products');
   const areas = useApi<ServiceArea[]>('/admin/service-areas');
@@ -118,14 +120,14 @@ export default function MenuPage() {
                   </Button>
                   <Button
                     variant="ghost"
-                    onClick={() => {
-                      const name = window.prompt('Novo nome da categoria', c.name);
+                    onClick={async () => {
+                      const name = await dialog.prompt({ title: 'Renomear categoria', label: 'Nome', initial: c.name, maxLength: 60, confirmLabel: 'Salvar' });
                       if (name && name !== c.name) void run(() => api(`/admin/categories/${c.id}`, { method: 'PATCH', body: { name } }).then(categories.reload));
                     }}
                   >
                     Renomear
                   </Button>
-                  <Button variant="ghost" onClick={() => window.confirm(`Excluir a categoria "${c.name}"?`) && run(() => api(`/admin/categories/${c.id}`, { method: 'DELETE' }).then(categories.reload))}>
+                  <Button variant="ghost" onClick={async () => (await dialog.confirm({ title: `Excluir a categoria "${c.name}"?`, body: 'Só é possível excluir categorias sem produtos.', confirmLabel: 'Excluir', danger: true })) && run(() => api(`/admin/categories/${c.id}`, { method: 'DELETE' }).then(categories.reload))}>
                     Excluir
                   </Button>
                 </div>
@@ -210,7 +212,7 @@ export default function MenuPage() {
               </label>
               <div className="flex justify-between gap-2 pt-2">
                 {editing.id ? (
-                  <Button type="button" variant="danger" onClick={() => window.confirm('Remover este produto do cardápio?') && run(() => api(`/admin/products/${editing.id}`, { method: 'DELETE' }).then(() => { setEditing(null); return products.reload(); }))}>
+                  <Button type="button" variant="danger" onClick={async () => (await dialog.confirm({ title: `Remover "${editing.name}" do cardápio?`, body: 'Pedidos já feitos continuam registrados. Esta ação não pode ser desfeita.', confirmLabel: 'Remover', danger: true })) && run(() => api(`/admin/products/${editing.id}`, { method: 'DELETE' }).then(() => { setEditing(null); return products.reload(); }))}>
                     Remover
                   </Button>
                 ) : (

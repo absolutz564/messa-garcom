@@ -5,8 +5,10 @@ import type { Table } from '@messa/contracts';
 import { api } from '@/lib/api';
 import { errorMessage, useApi } from '@/lib/use-api';
 import { Badge, Button, Card, ErrorText, Input, PageTitle } from '@/components/ui';
+import { useDialog } from '@/components/dialog';
 
 export default function TablesPage() {
+  const dialog = useDialog();
   const tables = useApi<Table[]>('/admin/tables');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -74,8 +76,8 @@ export default function TablesPage() {
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    const displayName = window.prompt('Nova identificação da mesa (o QR continua o mesmo)', t.displayName);
+                  onClick={async () => {
+                    const displayName = await dialog.prompt({ title: 'Renomear mesa', label: 'Identificação (o QR continua o mesmo)', initial: t.displayName, maxLength: 40, confirmLabel: 'Salvar' });
                     if (displayName && displayName !== t.displayName) void run(() => api(`/admin/tables/${t.id}`, { method: 'PATCH', body: { displayName } }).then(tables.reload));
                   }}
                 >
@@ -105,8 +107,8 @@ export default function TablesPage() {
             </div>
             <button
               className="mt-4 text-xs text-neutral-500 underline"
-              onClick={() =>
-                window.confirm('Gerar um novo QR Code? O QR atual deixará de funcionar imediatamente.') &&
+              onClick={async () =>
+                (await dialog.confirm({ title: 'Gerar um novo QR Code?', body: 'O QR atual deixa de funcionar imediatamente. Use quando o adesivo foi extraviado ou fotografado por terceiros.', confirmLabel: 'Gerar novo QR', danger: true })) &&
                 run(async () => {
                   const t = await api<Table>(`/admin/tables/${qr.table.id}/rotate-token`, { method: 'POST' });
                   await tables.reload();

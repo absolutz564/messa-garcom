@@ -6,6 +6,7 @@ import { money } from '@/lib/format';
 import { publicApi, isApiError } from '@/lib/public-api';
 import { useRealtimeKeyed } from '@/lib/realtime';
 import { newIdempotencyKey, useCart } from '@/lib/cart';
+import { DialogProvider, useDialog } from '@/components/dialog';
 
 type TableState = PublicTable['state'];
 
@@ -28,7 +29,16 @@ type Tab = 'menu' | 'cart' | 'bill';
 const requestKey = (token: string) => `messa_request_${token}`;
 const awaitingKey = (token: string) => `messa_awaiting_${token}`;
 
-export function MenuView({ table, menu, token }: { table: PublicTable; menu: Menu; token: string }) {
+export function MenuView(props: { table: PublicTable; menu: Menu; token: string }) {
+  return (
+    <DialogProvider>
+      <MenuViewInner {...props} />
+    </DialogProvider>
+  );
+}
+
+function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu; token: string }) {
+  const dialog = useDialog();
   const [ui, setUi] = useState<Ui>({ kind: 'loading' });
   const [tab, setTab] = useState<Tab>('menu');
   const [consumption, setConsumption] = useState<SessionConsumption | null>(null);
@@ -208,7 +218,7 @@ export function MenuView({ table, menu, token }: { table: PublicTable; menu: Men
   }
 
   async function cancelOrder(o: Order) {
-    if (!window.confirm(`Cancelar o pedido #${o.sequenceNo}?`)) return;
+    if (!(await dialog.confirm({ title: `Cancelar o pedido #${o.sequenceNo}?`, body: o.items.map((i) => `${i.quantity}× ${i.name}`).join(', '), confirmLabel: 'Cancelar pedido', danger: true }))) return;
     try {
       await publicApi.cancelOrder(o.id);
       await loadConsumption();

@@ -9,6 +9,7 @@ import { useRealtime } from '@/lib/realtime';
 import { chime, isSoundEnabled, notificationPermission, notify, requestNotifications, setSoundEnabled, unlockAudio } from '@/lib/sound';
 import { money as fmt } from '@/lib/format';
 import { StaffShell } from '@/components/staff-shell';
+import { useDialog } from '@/components/dialog';
 import { Badge, Button, Card, ErrorText, PageTitle } from '@/components/ui';
 
 const STATE_TONE: Record<StaffTable['state'], 'neutral' | 'green' | 'red' | 'amber'> = { free: 'neutral', requested: 'amber', occupied: 'green', inactive: 'red', disabled: 'neutral' };
@@ -27,6 +28,15 @@ function ago(iso: string) {
 
 /** Painel do operador + app do garçom (F03, F07 ack, F09, F12–F14). */
 export default function StaffPage() {
+  return (
+    <StaffShell title="Messa · Equipe" nav={[{ href: '/staff', label: 'Mesas' }]} require={['operator', 'waiter']}>
+      <StaffPanel />
+    </StaffShell>
+  );
+}
+
+function StaffPanel() {
+  const dialog = useDialog();
   const role = getSession()?.activeTenant?.role;
   const isOperator = role === 'operator' || role === 'admin';
   const [tables, setTables] = useState<StaffTable[]>([]);
@@ -122,7 +132,7 @@ export default function StaffPage() {
   const pendingConfirmation = orders.filter((o) => o.status === 'pending_confirmation');
 
   return (
-    <StaffShell title="Messa · Equipe" nav={[{ href: '/staff', label: 'Mesas' }]} require={['operator', 'waiter']}>
+    <>
       <PageTitle
         actions={
           <div className="flex gap-2">
@@ -188,7 +198,7 @@ export default function StaffPage() {
               ) : (
                 <div className="space-y-2">
                   {submitted.map((o) => (
-                    <OrderCard key={o.id} order={o} busy={busy === o.id} onAck={() => run(o.id, () => api(`/staff/orders/${o.id}/ack`, { method: 'POST' }))} onCancel={() => window.confirm(`Cancelar o pedido #${o.sequenceNo} da ${o.table.displayName}?`) && run(o.id, () => api(`/staff/orders/${o.id}/cancel`, { method: 'POST', body: {} }))} />
+                    <OrderCard key={o.id} order={o} busy={busy === o.id} onAck={() => run(o.id, () => api(`/staff/orders/${o.id}/ack`, { method: 'POST' }))} onCancel={async () => (await dialog.confirm({ title: `Cancelar o pedido #${o.sequenceNo}?`, body: `${o.table.displayName} · ${o.items.map((i) => `${i.quantity}× ${i.name}`).join(', ')}`, confirmLabel: 'Cancelar pedido', danger: true })) && run(o.id, () => api(`/staff/orders/${o.id}/cancel`, { method: 'POST', body: {} }))} />
                   ))}
                 </div>
               )}
@@ -228,11 +238,12 @@ export default function StaffPage() {
             busy={busy === selectedTable.id}
             onOpen={() => run(selectedTable.id, () => api(`/staff/tables/${selectedTable.id}/open`, { method: 'POST' }))}
             onClose={(force) => run(selectedTable.id, () => api(`/staff/sessions/${selectedTable.session!.id}/close`, { method: 'POST', body: { force } }))}
+            dialog={dialog}
             onDeselect={() => setSelected(null)}
           />
         )}
       </div>
-    </StaffShell>
+    </>
   );
 }
 
@@ -304,7 +315,7 @@ function RequestCard({ request: r, pendingOrder, busy, onApprove, onReject }: { 
   );
 }
 
-function TableDetail({ table: t, isOperator, busy, onOpen, onClose, onDeselect }: { table: StaffTable; isOperator: boolean; busy: boolean; onOpen: () => void; onClose: (force: boolean) => void; onDeselect: () => void }) {
+function TableDetail({ table: t, isOperator, busy, onOpen, onClose, onDeselect, dialog }: { table: StaffTable; isOperator: boolean; busy: boolean; onOpen: () => void; onClose: (force: boolean) => void; onDeselect: () => void; dialog: ReturnType<typeof useDialog> }) {
   const s: StaffSession | null = t.session;
   const [consumption, setConsumption] = useState<SessionConsumption | null>(null);
   useEffect(() => {
@@ -368,10 +379,14 @@ function TableDetail({ table: t, isOperator, busy, onOpen, onClose, onDeselect }
               variant="danger"
               className="w-full"
               disabled={busy}
-              onClick={() => {
+              onClick={async () => {
                 if (s.unacknowledgedCount > 0) {
-                  if (window.confirm(`${ptBR.staff.session.close.pending.title.replace('{count}', String(s.unacknowledgedCount))}\n\n${ptBR.staff.session.close.pending.force}?`)) onClose(true);
-                } else if (window.confirm(`Encerrar o atendimento da ${t.displayName}?`)) onClose(false);
+                  const ok = await dialog.confirm({ title: ptBR.staff.session.close.pending.title.replace('{count}', String(s.unacknowledgedCount)), body: 'Os pedidos não lançados serão cancelados e a comanda será preservada.', confirmLabel: ptBR.staff.session.close.pending.force, danger: true });
+                  if (ok) onClose(true);
+                } else {
+                  const ok = await dialog.confirm({ title: `Encerrar o atendimento da ${t.displayName}?`, body: `${consumption?.orders.length ?? s.ordersCount} pedidos · ${money(consumption?.totalCents ?? s.totalCents)}. O PIN deixa de valer e a mesa volta a ficar livre.`, confirmLabel: 'Encerrar atendimento', danger: true });
+                  if (ok) onClose(false);
+                }
               }}
             >
               Encerrar atendimento

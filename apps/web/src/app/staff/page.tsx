@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ptBR, type ServiceArea, type SessionConsumption, type StaffOrder, type StaffRequest, type StaffSession, type StaffTable } from '@messa/contracts';
 import { api, getSession } from '@/lib/api';
 import { errorMessage } from '@/lib/use-api';
 import { money } from '@/lib/format';
 import { useRealtime } from '@/lib/realtime';
+import { chime, isSoundEnabled, setSoundEnabled, unlockAudio } from '@/lib/sound';
 import { StaffShell } from '@/components/staff-shell';
 import { Badge, Button, Card, ErrorText, PageTitle } from '@/components/ui';
 
@@ -34,6 +35,10 @@ export default function StaffPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [sound, setSound] = useState(true);
+  const seen = useRef<{ requests: Set<string>; orders: Set<string>; primed: boolean }>({ requests: new Set(), orders: new Set(), primed: false });
+
+  useEffect(() => setSound(isSoundEnabled()), []);
 
   const reload = useCallback(async () => {
     try {
@@ -48,6 +53,17 @@ export default function StaffPage() {
       setRequests(r);
       setOrders(o);
       setError(null);
+      // Toca ao detectar solicitação/pedido novos (socket ou polling), exceto na primeira carga.
+      const st = seen.current;
+      const newReq = r.some((x) => !st.requests.has(x.id));
+      const newOrd = o.some((x) => x.status === 'submitted' && !st.orders.has(x.id));
+      st.requests = new Set(r.map((x) => x.id));
+      st.orders = new Set(o.filter((x) => x.status === 'submitted').map((x) => x.id));
+      if (st.primed) {
+        if (newReq) void chime('request');
+        else if (newOrd) void chime('order');
+      }
+      st.primed = true;
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -59,13 +75,20 @@ export default function StaffPage() {
     return () => window.clearInterval(id);
   }, [reload]);
 
-  useRealtime(
-    (e) => {
-      if (e.type === 'request.created' || e.type === 'order.created') void playBeep();
-      void reload();
-    },
-    { staff: true },
-  );
+  useRealtime(() => void reload(), { staff: true });
+
+  // Campainha repetida enquanto houver solicitação pendente + título da aba (caixa de costas para a tela).
+  useEffect(() => {
+    const pending = requests.length;
+    const base = 'Messa · Equipe';
+    document.title = pending > 0 ? `(${pending}) Solicitação de atendimento` : base;
+    if (pending === 0) return;
+    const id = window.setInterval(() => void chime('request'), 15_000);
+    return () => {
+      window.clearInterval(id);
+      document.title = base;
+    };
+  }, [requests.length]);
 
   async function run(key: string, fn: () => Promise<unknown>) {
     setBusy(key);
@@ -89,6 +112,21 @@ export default function StaffPage() {
       <PageTitle
         actions={
           <div className="flex gap-2">
+            <Button
+              variant={sound ? 'secondary' : 'ghost'}
+              title={sound ? 'Som de alerta ligado' : 'Som de alerta desligado'}
+              onClick={async () => {
+                const next = !sound;
+                setSoundEnabled(next);
+                setSound(next);
+                if (next) {
+                  await unlockAudio();
+                  void chime('test');
+                }
+              }}
+            >
+              {sound ? '🔔 Som ligado' : '🔕 Som desligado'}
+            </Button>
             {areas.map((a) => (
               <Button key={a.key} variant={a.isOpen ? 'secondary' : 'danger'} disabled={!isOperator || busy === a.key} onClick={() => run(a.key, () => api(`/admin/service-areas/${a.key}`, { method: 'PATCH', body: { isOpen: !a.isOpen } }))}>
                 {a.isOpen ? ptBR.staff.area.close[a.key] : ptBR.staff.area.open[a.key]}
@@ -328,18 +366,3 @@ function TableDetail({ table: t, isOperator, busy, onOpen, onClose, onDeselect }
   );
 }
 
-let audioCtx: AudioContext | null = null;
-async function playBeep() {
-  try {
-    audioCtx ??= new AudioContext();
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.connect(g).connect(audioCtx.destination);
-    o.frequency.value = 880;
-    g.gain.value = 0.1;
-    o.start();
-    o.stop(audioCtx.currentTime + 0.25);
-  } catch {
-    /* autoplay bloqueado até a primeira interação */
-  }
-}

@@ -7,7 +7,7 @@ export const CARD_COPY = {
   headline: 'Faça seu pedido pelo celular',
   slogan: 'Messa · seu garçom virtual',
   hint: 'Aponte a câmera do celular para o código',
-  hint2: 'Peça a liberação no caixa e receba o PIN da mesa',
+  hint2: 'Toque em “Iniciar atendimento” e faça seu pedido',
 };
 
 export interface CardInput {

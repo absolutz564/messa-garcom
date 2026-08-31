@@ -1,12 +1,13 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { hash, verify } from '@node-rs/argon2';
+import { verify } from '@node-rs/argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
 import { schema, type DbHandle, type Tx } from '@messa/db';
 import type { AccessTokenClaims, LoginResponse, MembershipSummary, Role, Signup } from '@messa/contracts';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
+import { hashPassword } from '../../common/password';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
 import { PlatformService } from '../platform/platform.service';
@@ -33,8 +34,9 @@ export class AuthService {
     private readonly platform: PlatformService,
   ) {}
 
+  /** Mantido por compatibilidade; a implementação vive em `common/password` (sem ciclo). */
   static hashPassword(password: string) {
-    return hash(password);
+    return hashPassword(password);
   }
 
   /**

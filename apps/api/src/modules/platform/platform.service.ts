@@ -5,7 +5,7 @@ import { cryptoRandomInt, evaluateTenantBilling, RULES, slugify, slugWithSuffix 
 import type { CreateTenant, Tenant } from '@messa/contracts';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
-import { AuthService } from '../identity/auth.service';
+import { hashPassword } from '../../common/password';
 
 /** Super Admin (RF-03). Toda operação roda em withPlatformTx e é auditada via outbox. */
 @Injectable()
@@ -23,7 +23,7 @@ export class PlatformService {
   }
 
   async create(input: CreateTenant, actorUserId: string): Promise<Tenant> {
-    const passwordHash = await AuthService.hashPassword(input.adminPassword);
+    const passwordHash = await hashPassword(input.adminPassword);
     return this.db.withPlatformTx(async (tx) => {
       const [existing] = await tx.select({ id: schema.tenants.id }).from(schema.tenants).where(eq(schema.tenants.slug, input.slug));
       if (existing) throw new ConflictException({ code: 'slug_taken', message: 'Slug já em uso' });
@@ -50,7 +50,7 @@ export class PlatformService {
    * qualquer visitante anexar uma membership de admin à conta de um estranho.
    */
   async signup(input: { restaurantName: string; adminName: string; email: string; password: string }): Promise<Tenant> {
-    const passwordHash = await AuthService.hashPassword(input.password);
+    const passwordHash = await hashPassword(input.password);
     const email = input.email.toLowerCase();
     return this.db.withPlatformTx(async (tx) => {
       const [existingUser] = await tx.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, email));

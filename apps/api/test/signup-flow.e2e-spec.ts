@@ -64,8 +64,8 @@ describe('self-service signup (e2e)', () => {
   });
 
   it('mesmo nome de restaurante ⇒ slug distinto, sem colisão', async () => {
-    const a = await signup({ restaurantName: 'Cantina Repetida', adminName: 'A', email: `a-${run}@test.local`, password: PASSWORD, acceptedPrivacy: true });
-    const b = await signup({ restaurantName: 'Cantina Repetida', adminName: 'B', email: `b-${run}@test.local`, password: PASSWORD, acceptedPrivacy: true });
+    const a = await signup({ restaurantName: 'Cantina Repetida', adminName: 'Ana', email: `a-${run}@test.local`, password: PASSWORD, acceptedPrivacy: true });
+    const b = await signup({ restaurantName: 'Cantina Repetida', adminName: 'Bruno', email: `b-${run}@test.local`, password: PASSWORD, acceptedPrivacy: true });
     expect(a.statusCode).toBe(201);
     expect(b.statusCode).toBe(201);
     expect(a.json().activeTenant.tenantSlug).not.toBe(b.json().activeTenant.tenantSlug);
@@ -87,12 +87,12 @@ describe('self-service signup (e2e)', () => {
   });
 
   it('sem aceitar a política de privacidade ⇒ 422', async () => {
-    const res = await signup({ restaurantName: 'Sem Aceite', adminName: 'X', email: `noaccept-${run}@test.local`, password: PASSWORD, acceptedPrivacy: false });
+    const res = await signup({ restaurantName: 'Sem Aceite', adminName: 'Dono Teste', email: `noaccept-${run}@test.local`, password: PASSWORD, acceptedPrivacy: false });
     expect(res.statusCode).toBe(422);
   });
 
   it('senha curta ⇒ 422', async () => {
-    const res = await signup({ restaurantName: 'Senha Fraca', adminName: 'X', email: `weak-${run}@test.local`, password: '123', acceptedPrivacy: true });
+    const res = await signup({ restaurantName: 'Senha Fraca', adminName: 'Dono Teste', email: `weak-${run}@test.local`, password: '123', acceptedPrivacy: true });
     expect(res.statusCode).toBe(422);
   });
 });

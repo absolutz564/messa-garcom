@@ -111,7 +111,11 @@ export class AuthService {
    */
   async resetPassword(token: string, password: string): Promise<void> {
     const passwordHash = await hashPassword(password);
-    await this.db.withGlobalTx(async (tx) => {
+    // `withPlatformTx`, e não `withGlobalTx`, por causa do RLS de `staff_devices`
+    // (política `tenant_or_self`): sem contexto, o UPDATE casa com zero linhas e a
+    // revogação falha em silêncio — o e2e pegou isso. Mesmo padrão do `acceptInvite`,
+    // que também é um fluxo público por token e precisa escrever sem tenant ativo.
+    await this.db.withPlatformTx(async (tx) => {
       const [user] = await tx.select().from(schema.users).where(eq(schema.users.passwordResetTokenHash, sha256(token)));
       if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
         throw new BadRequestException({ code: 'reset_invalid', message: 'Link inválido ou expirado. Peça um novo.' });

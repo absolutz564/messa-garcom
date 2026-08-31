@@ -40,6 +40,18 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm db:migrate
-      - name: e2e (tenant isolation)
-        run: pnpm --filter @messa/api test:e2e
+      - name: e2e
+        run: |
+          set -o pipefail
+          pnpm --filter @messa/api test:e2e 2>&1 | tee e2e.log
+      # O log do Actions exige autenticação para ser lido; o artefato de um repositório
+      # público não exige. Sem isto, diagnosticar um e2e vermelho depende de alguém
+      # abrir a interface do GitHub e copiar a saída à mão.
+      - name: log do e2e
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-log
+          path: e2e.log
+          retention-days: 7
       - run: pnpm build

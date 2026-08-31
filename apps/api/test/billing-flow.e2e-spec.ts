@@ -50,7 +50,7 @@ describe('billing (e2e)', () => {
     expect(body.plan).toBeNull();
 
     const open = await app.inject({ method: 'POST', url: `/public/tables/${table.publicToken}/requests` });
-    expect(open.statusCode).toBe(200);
+    expect(open.statusCode).toBe(201);
   });
 
   it('escolhe um plano', async () => {
@@ -73,7 +73,7 @@ describe('billing (e2e)', () => {
     expect(status.json().phase).toBe('past_due');
 
     const open = await app.inject({ method: 'POST', url: `/public/tables/${table.publicToken}/requests` });
-    expect(open.statusCode).toBe(200);
+    expect(open.statusCode).toBe(201);
   });
 
   it('vencido além da carência: bloqueia open_session mas login/tela de cobrança continuam de pé', async () => {

@@ -95,7 +95,7 @@ Prioridade: **M** must · **S** should · **F** future.
 | RF-71 | Papéis: Super Admin, Restaurant Admin, Operator, Waiter, Customer (anônimo). | M |
 | RF-72 | Usuário pode ter papel em mais de um tenant. | S (modelo suporta desde o MVP) |
 | RF-73 | Login de funcionário com e-mail + senha. | M |
-| RF-74 | Garçom no celular pessoal: sessão longa em PWA, revogável pelo admin (PDR-011). | M |
+| RF-74 | Garçom no celular pessoal: sessão longa em PWA, revogável pelo admin (PDR-011). PWA instalável entregue 2026-08-31 (PDR-019): ícones, service worker, convite de instalação no painel e passo a passo no iOS. | M |
 | RF-75 | Recuperação de senha por e-mail (entregue 2026-08-31, BR-22): link válido por 1 h, revoga dispositivos ao trocar. | M |
 
 ## Integrações

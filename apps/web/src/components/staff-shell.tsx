@@ -9,6 +9,7 @@ import { hexToRgbTriplet } from '@/lib/format';
 import { Button } from './ui';
 import { DialogProvider } from './dialog';
 import { BillingBanner } from './billing-banner';
+import { InstallApp } from './install-app';
 
 interface NavItem {
   href: string;
@@ -97,6 +98,7 @@ export function StaffShell({
         </div>
       </header>
       {session.activeTenant && <BillingBanner session={session} />}
+      <InstallApp />
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
     </div>
     </DialogProvider>

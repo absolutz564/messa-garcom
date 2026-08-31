@@ -5,7 +5,15 @@ export const metadata: Metadata = {
   title: 'Messa — Garçom Virtual',
   description: 'Um garçom virtual que trabalha junto com a equipe do restaurante.',
   manifest: '/manifest.webmanifest',
-  icons: { icon: '/icon.svg', apple: '/icon.svg' },
+  icons: {
+    // O iOS ignora SVG na tela de início: o apple-touch-icon precisa ser PNG (PDR-019).
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
   appleWebApp: { capable: true, title: 'Messa', statusBarStyle: 'default' },
 };
 

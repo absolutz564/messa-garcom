@@ -22,6 +22,9 @@ export function middleware(req: NextRequest) {
     "base-uri 'self'",
     "form-action 'self'",
     "manifest-src 'self'",
+    // Explícito de propósito: `worker-src` cai para `script-src`, que usa 'strict-dynamic'
+    // e ignora 'self' — sem esta linha o navegador recusa registrar /sw.js (PDR-019).
+    "worker-src 'self'",
   ].join('; ');
 
   // O Next extrai o nonce do header CSP da REQUISIÇÃO para carimbar seus <script>; a resposta leva o mesmo CSP.
@@ -34,5 +37,10 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [{ source: '/((?!_next/static|_next/image|icon.svg|manifest.webmanifest).*)', missing: [{ type: 'header', key: 'next-router-prefetch' }] }],
+  matcher: [
+    {
+      source: '/((?!_next/static|_next/image|icon.svg|icon-192.png|icon-512.png|icon-maskable-512.png|apple-touch-icon.png|manifest.webmanifest|sw.js|offline.html).*)',
+      missing: [{ type: 'header', key: 'next-router-prefetch' }],
+    },
+  ],
 };

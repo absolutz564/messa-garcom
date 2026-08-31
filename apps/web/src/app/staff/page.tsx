@@ -168,7 +168,7 @@ function StaffPanel() {
     <>
       <PageTitle
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={sound ? 'secondary' : 'ghost'}
               title={sound ? 'Som de alerta ligado' : 'Som de alerta desligado'}

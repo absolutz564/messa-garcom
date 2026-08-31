@@ -64,37 +64,44 @@ export function StaffShell({
     <DialogProvider>
     <div className="min-h-screen bg-neutral-50" style={brand ? ({ '--brand': brand } as React.CSSProperties) : undefined}>
       <BrandVar />
+      {/*
+        No celular vira duas faixas: identificação em cima, navegação embaixo rolando
+        na horizontal. Numa fileira só, o título quebrava em duas linhas e as abas
+        seguintes ficavam fora da tela — o garçom nem sabia que existiam.
+      */}
       <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-6">
-            <span className="font-semibold">{title}</span>
-            <nav className="flex gap-1">
-              {[...nav, ...(session.activeTenant?.role === 'admin' && !nav.some((n) => n.href.startsWith('/admin')) ? [{ href: '/admin', label: 'Administração' }] : [])].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`rounded-lg px-3 py-1.5 text-sm ${(item.href === '/staff' ? pathname === '/staff' || pathname.startsWith('/staff/order') : pathname.startsWith(item.href)) ? 'bg-neutral-900 text-white' : 'text-neutral-700 hover:bg-neutral-100'}`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+        <div className="mx-auto max-w-5xl px-4 py-2 sm:py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 truncate font-semibold">{title}</span>
+            <div className="flex shrink-0 items-center gap-2 text-sm text-neutral-600">
+              <span className="hidden max-w-[220px] truncate sm:inline">
+                {session.user.name}
+                {session.activeTenant && <span className="text-neutral-400"> · {session.activeTenant.tenantName}</span>}
+              </span>
+              {/* No celular sobra só o restaurante: saber em qual casa se está logado importa mais que o próprio nome. */}
+              <span className="max-w-[120px] truncate text-neutral-400 sm:hidden">{session.activeTenant?.tenantName}</span>
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  await logout();
+                  router.replace('/staff/login');
+                }}
+              >
+                Sair
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-sm text-neutral-600">
-            <span>
-              {session.user.name}
-              {session.activeTenant && <span className="text-neutral-400"> · {session.activeTenant.tenantName}</span>}
-            </span>
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                await logout();
-                router.replace('/staff/login');
-              }}
-            >
-              Sair
-            </Button>
-          </div>
+          <nav className="-mx-1 mt-1 flex gap-1 overflow-x-auto pb-1 sm:mt-2">
+            {[...nav, ...(session.activeTenant?.role === 'admin' && !nav.some((n) => n.href.startsWith('/admin')) ? [{ href: '/admin', label: 'Administração' }] : [])].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${(item.href === '/staff' ? pathname === '/staff' || pathname.startsWith('/staff/order') : pathname.startsWith(item.href)) ? 'bg-neutral-900 text-white' : 'text-neutral-700 hover:bg-neutral-100'}`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </header>
       {session.activeTenant && <BillingBanner session={session} />}

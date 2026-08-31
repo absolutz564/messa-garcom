@@ -5,7 +5,7 @@ import type { Category, Product, ServiceArea, UpsertProduct } from '@messa/contr
 import { api } from '@/lib/api';
 import { errorMessage, useApi } from '@/lib/use-api';
 import { money, parseMoney } from '@/lib/format';
-import { Badge, Button, Card, ErrorText, Field, Input, PageTitle, Select, Textarea } from '@/components/ui';
+import { Badge, Button, Card, ErrorText, Field, Input, ListRow, PageTitle, Select, Textarea } from '@/components/ui';
 import { ImageUpload } from '@/components/image-upload';
 import { useDialog } from '@/components/dialog';
 
@@ -110,11 +110,11 @@ export default function MenuPage() {
         <div className="space-y-4">
           {categories.data?.map((c) => (
             <Card key={c.id}>
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-semibold">
                   {c.name} {!c.isActive && <Badge>oculta</Badge>}
                 </h2>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   <Button variant="ghost" onClick={() => run(() => api(`/admin/categories/${c.id}`, { method: 'PATCH', body: { isActive: !c.isActive } }).then(categories.reload))}>
                     {c.isActive ? 'Ocultar' : 'Mostrar'}
                   </Button>
@@ -134,36 +134,43 @@ export default function MenuPage() {
               </div>
               <ul className="divide-y divide-neutral-100">
                 {(byCategory.get(c.id) ?? []).map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center gap-3 py-2">
+                  <ListRow
+                    key={p.id}
+                    actions={
+                      <>
+                        {/* No celular o preço desce junto com os botões; no desktop fica antes deles. */}
+                        <span className="mr-auto text-sm font-medium sm:mr-0">{money(p.priceCents)}</span>
+                        <Button variant="ghost" onClick={() => run(() => api(`/admin/products/${p.id}`, { method: 'PATCH', body: { isAvailable: !p.isAvailable } }).then(products.reload))}>
+                          {p.isAvailable ? 'Esgotar' : 'Disponível'}
+                        </Button>
+                        <Button variant="secondary" onClick={() => edit(p)}>
+                          Editar
+                        </Button>
+                      </>
+                    }
+                  >
                     {p.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.imageUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                      <img src={p.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
                     ) : (
-                      <div className="h-12 w-12 rounded-lg bg-neutral-100" />
+                      <div className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="font-medium">{p.name}</span>
                         <Badge tone={p.serviceAreaKey === 'kitchen' ? 'amber' : 'neutral'}>{p.serviceAreaKey === 'kitchen' ? 'Cozinha' : 'Bar'}</Badge>
                         {!p.isAvailable && <Badge tone="red">Indisponível</Badge>}
                       </div>
                       {p.description && <p className="truncate text-xs text-neutral-500">{p.description}</p>}
                     </div>
-                    <span className="text-sm font-medium">{money(p.priceCents)}</span>
-                    <Button variant="ghost" onClick={() => run(() => api(`/admin/products/${p.id}`, { method: 'PATCH', body: { isAvailable: !p.isAvailable } }).then(products.reload))}>
-                      {p.isAvailable ? 'Esgotar' : 'Disponível'}
-                    </Button>
-                    <Button variant="secondary" onClick={() => edit(p)}>
-                      Editar
-                    </Button>
-                  </li>
+                  </ListRow>
                 ))}
                 {(byCategory.get(c.id) ?? []).length === 0 && <li className="py-3 text-sm text-neutral-400">Sem produtos.</li>}
               </ul>
             </Card>
           ))}
           <Card>
-            <form onSubmit={addCategory} className="flex gap-2">
+            <form onSubmit={addCategory} className="flex flex-col gap-2 sm:flex-row">
               <Input placeholder="Nova categoria (ex.: Hambúrgueres)" required value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
               <Button type="submit" variant="secondary">
                 Adicionar

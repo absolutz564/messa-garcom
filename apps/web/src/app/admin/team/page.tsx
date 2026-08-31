@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import type { Member, Role } from '@messa/contracts';
 import { api } from '@/lib/api';
 import { errorMessage, useApi } from '@/lib/use-api';
-import { Badge, Button, Card, ErrorText, Field, Input, PageTitle, Select } from '@/components/ui';
+import { Badge, Button, Card, ErrorText, Field, Input, ListRow, PageTitle, Select } from '@/components/ui';
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Administrador', operator: 'Operador / Caixa', waiter: 'Garçom' };
 
@@ -43,32 +43,39 @@ export default function TeamPage() {
         <Card>
           <ul className="divide-y divide-neutral-100">
             {members.data?.map((m) => (
-              <li key={m.id} className="flex flex-wrap items-center gap-3 py-3">
-                <div className="min-w-[180px] flex-1">
-                  <div className="flex items-center gap-2">
+              <ListRow
+                key={m.id}
+                actions={
+                  <>
+                    {/* O seletor de papel ocupa a linha toda no celular; largura fixa só a partir de sm. */}
+                    <div className="w-full sm:w-44">
+                      <Select value={m.role} onChange={(e) => run(() => api(`/admin/members/${m.id}`, { method: 'PATCH', body: { role: e.target.value } }).then(members.reload))}>
+                        {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABEL[r]}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <Button variant="ghost" className="shrink-0" title="Desconecta todos os celulares deste funcionário" onClick={() => run(() => api(`/admin/members/${m.id}/revoke-devices`, { method: 'POST' }))}>
+                      Desconectar
+                    </Button>
+                    <Button variant={m.status === 'disabled' ? 'secondary' : 'danger'} className="shrink-0" onClick={() => run(() => api(`/admin/members/${m.id}`, { method: 'PATCH', body: { status: m.status === 'disabled' ? 'active' : 'disabled' } }).then(members.reload))}>
+                      {m.status === 'disabled' ? 'Reativar' : 'Desativar'}
+                    </Button>
+                  </>
+                }
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-medium">{m.name}</span>
                     <Badge tone={m.status === 'active' ? 'green' : m.status === 'invited' ? 'amber' : 'red'}>
                       {m.status === 'active' ? 'Ativo' : m.status === 'invited' ? 'Convite pendente' : 'Desativado'}
                     </Badge>
                   </div>
-                  <p className="text-xs text-neutral-500">{m.email}</p>
+                  <p className="truncate text-xs text-neutral-500">{m.email}</p>
                 </div>
-                <div className="w-44 shrink-0">
-                  <Select value={m.role} onChange={(e) => run(() => api(`/admin/members/${m.id}`, { method: 'PATCH', body: { role: e.target.value } }).then(members.reload))}>
-                    {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABEL[r]}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <Button variant="ghost" className="shrink-0" title="Desconecta todos os celulares deste funcionário" onClick={() => run(() => api(`/admin/members/${m.id}/revoke-devices`, { method: 'POST' }))}>
-                  Desconectar
-                </Button>
-                <Button variant={m.status === 'disabled' ? 'secondary' : 'danger'} className="shrink-0" onClick={() => run(() => api(`/admin/members/${m.id}`, { method: 'PATCH', body: { status: m.status === 'disabled' ? 'active' : 'disabled' } }).then(members.reload))}>
-                  {m.status === 'disabled' ? 'Reativar' : 'Desativar'}
-                </Button>
-              </li>
+              </ListRow>
             ))}
           </ul>
         </Card>

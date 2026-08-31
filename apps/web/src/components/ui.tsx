@@ -57,9 +57,25 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
 
 export function PageTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <h1 className="text-xl font-semibold">{children}</h1>
       {actions}
     </div>
+  );
+}
+
+/**
+ * Linha de lista (produto, mesa, funcionário) que sobrevive à tela de celular.
+ *
+ * No celular a informação ocupa a largura toda e os botões descem para a linha de
+ * baixo; a partir de `sm` tudo volta a caber numa fileira só. Antes era um `flex`
+ * único para os dois, e no celular o nome, o selo e o preço se sobrepunham.
+ */
+export function ListRow({ children, actions, className = '' }: { children: ReactNode; actions: ReactNode; className?: string }) {
+  return (
+    <li className={`flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3 ${className}`}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">{children}</div>
+      <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>
+    </li>
   );
 }

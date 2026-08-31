@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import type { Table } from '@messa/contracts';
 import { api } from '@/lib/api';
 import { errorMessage, useApi } from '@/lib/use-api';
-import { Badge, Button, Card, ErrorText, Input, PageTitle } from '@/components/ui';
+import { Badge, Button, Card, ErrorText, Input, ListRow, PageTitle } from '@/components/ui';
 import { useDialog } from '@/components/dialog';
 
 export default function TablesPage() {
@@ -61,36 +61,42 @@ export default function TablesPage() {
       <ErrorText>{error ?? tables.error}</ErrorText>
       <div className="grid gap-6 md:grid-cols-[1fr_360px]">
         <Card>
-          <form onSubmit={create} className="mb-4 flex gap-2">
+          <form onSubmit={create} className="mb-4 flex flex-col gap-2 sm:flex-row">
             <Input placeholder="Identificação (ex.: Mesa 38, VIP 01, Varanda 03)" required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
             <Button type="submit">Criar mesa</Button>
           </form>
           <ul className="divide-y divide-neutral-100">
             {tables.data?.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center gap-3 py-2">
+              <ListRow
+                key={t.id}
+                actions={
+                  <>
+                    <Button variant="ghost" onClick={() => showQr(t)}>
+                      QR
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={async () => {
+                        const displayName = await dialog.prompt({ title: 'Renomear mesa', label: 'Identificação (o QR continua o mesmo)', initial: t.displayName, maxLength: 40, confirmLabel: 'Salvar' });
+                        if (displayName && displayName !== t.displayName) void run(() => api(`/admin/tables/${t.id}`, { method: 'PATCH', body: { displayName } }).then(tables.reload));
+                      }}
+                    >
+                      Renomear
+                    </Button>
+                    <Button variant="ghost" onClick={() => run(() => api(`/admin/tables/${t.id}`, { method: 'PATCH', body: { isActive: !t.isActive } }).then(tables.reload))}>
+                      {t.isActive ? 'Desativar' : 'Ativar'}
+                    </Button>
+                  </>
+                }
+              >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-medium">{t.displayName}</span>
                     {!t.isActive && <Badge tone="red">Desativada</Badge>}
                   </div>
                   <p className="truncate text-xs text-neutral-500">{t.qrUrl}</p>
                 </div>
-                <Button variant="ghost" onClick={() => showQr(t)}>
-                  QR
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={async () => {
-                    const displayName = await dialog.prompt({ title: 'Renomear mesa', label: 'Identificação (o QR continua o mesmo)', initial: t.displayName, maxLength: 40, confirmLabel: 'Salvar' });
-                    if (displayName && displayName !== t.displayName) void run(() => api(`/admin/tables/${t.id}`, { method: 'PATCH', body: { displayName } }).then(tables.reload));
-                  }}
-                >
-                  Renomear
-                </Button>
-                <Button variant="ghost" onClick={() => run(() => api(`/admin/tables/${t.id}`, { method: 'PATCH', body: { isActive: !t.isActive } }).then(tables.reload))}>
-                  {t.isActive ? 'Desativar' : 'Ativar'}
-                </Button>
-              </li>
+              </ListRow>
             ))}
             {tables.data?.length === 0 && <li className="py-6 text-center text-sm text-neutral-400">Nenhuma mesa cadastrada.</li>}
           </ul>

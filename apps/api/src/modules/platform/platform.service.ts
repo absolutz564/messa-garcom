@@ -154,6 +154,11 @@ function toDto(t: typeof schema.tenants.$inferSelect): Tenant {
     primaryColor: t.primaryColor,
     status: t.status as Tenant['status'],
     createdAt: t.createdAt.toISOString(),
-    billing: { phase: billing.phase, daysLeft: billing.daysLeft, plan: t.billingPlan as Tenant['billing']['plan'] },
+    billing: {
+      phase: billing.phase,
+      daysLeft: billing.daysLeft,
+      plan: t.billingPlan as Tenant['billing']['plan'],
+      expiresAt: (t.billingStatus === 'trial' ? t.trialEndsAt : t.subscriptionEndsAt)?.toISOString() ?? null,
+    },
   };
 }

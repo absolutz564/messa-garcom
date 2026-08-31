@@ -44,6 +44,13 @@ export class EmailService {
     }
   }
 
+  /** BR-22 — link de redefinição. Não diz nada sobre contas: quem não pediu, ignora. */
+  passwordResetEmail(to: string, name: string, url: string, ttlHours: number): EmailMessage {
+    const text = `Olá, ${name}!\n\nRecebemos um pedido para redefinir sua senha do Messa.\n\nDefina uma nova senha (link válido por ${ttlHours} hora(s)):\n${url}\n\nSe não foi você que pediu, ignore este e-mail — sua senha atual continua valendo.`;
+    const html = `<p>Olá, ${escape(name)}!</p><p>Recebemos um pedido para redefinir sua senha do Messa.</p><p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#e11d48;color:#fff;border-radius:8px;text-decoration:none">Definir nova senha</a></p><p style="color:#666;font-size:12px">Link válido por ${ttlHours} hora(s). Se não foi você que pediu, ignore este e-mail — sua senha atual continua valendo.</p>`;
+    return { to, subject: 'Redefinir sua senha — Messa', html, text };
+  }
+
   inviteEmail(to: string, name: string, tenantName: string, role: string, url: string): EmailMessage {
     const roleLabel = { admin: 'administrador', operator: 'operador/caixa', waiter: 'garçom' }[role] ?? role;
     const text = `Olá, ${name}!\n\nVocê foi convidado(a) para a equipe de ${tenantName} no Messa como ${roleLabel}.\n\nAtive seu acesso (link válido por 7 dias):\n${url}\n\nSe você não esperava este convite, ignore este e-mail.`;

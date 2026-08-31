@@ -67,6 +67,9 @@ export const users = pgTable(
     /** 2FA (TOTP) — obrigatório para platform admin (threat-model). Segredo cifrado com a chave do servidor. */
     totpSecretEncrypted: text('totp_secret_encrypted'),
     totpEnabledAt: ts('totp_enabled_at'),
+    /** BR-22 — recuperação de senha. Só o hash do token é guardado (mesmo padrão do convite). */
+    passwordResetTokenHash: text('password_reset_token_hash'),
+    passwordResetExpiresAt: ts('password_reset_expires_at'),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('users_email_uq').on(t.email)],

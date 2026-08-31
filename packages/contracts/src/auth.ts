@@ -24,6 +24,16 @@ export const SignupSchema = z.object({
 });
 export type Signup = z.infer<typeof SignupSchema>;
 
+/** BR-22 — recuperação de senha. A resposta nunca revela se o e-mail existe. */
+export const ForgotPasswordSchema = z.object({ email: z.string().email().max(254) });
+export type ForgotPassword = z.infer<typeof ForgotPasswordSchema>;
+
+export const ResetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(8).max(128),
+});
+export type ResetPassword = z.infer<typeof ResetPasswordSchema>;
+
 export const MembershipSummarySchema = z.object({
   tenantId: z.string().uuid(),
   tenantName: z.string(),

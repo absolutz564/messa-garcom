@@ -111,3 +111,10 @@ Toda transição grava `DomainEvent` com `actor` (`{kind: customer|staff|system,
 - Cria tenant (trial de 14 dias, BR-20) + usuário admin + membership `active` + áreas de serviço padrão — mesma transação de `platform.service.create`, mas com slug gerado automaticamente a partir do nome (nunca exposto no formulário) e ator `{kind: 'staff', id: novoUsuário}` no evento `tenant.created`.
 - **E-mail já cadastrado ⇒ 409 `email_in_use`, nunca reaproveita a conta.** Diferente do fluxo do Super Admin (RF-72, que reaproveita usuário existente por e-mail): ali um humano confiável já verificou a solicitação fora da banda; aqui qualquer um poderia digitar o e-mail de outra pessoa sem provar posse da caixa, e reaproveitar significaria anexar uma membership de admin nova à conta de um estranho sem consentimento.
 - Sucesso ⇒ login automático (mesmo `AuthService.login`) e cookies de sessão emitidos na resposta — o dono do restaurante cai direto no `/admin`, sem passo extra.
+
+## BR-22 Recuperação de senha (RF-75)
+- `POST /auth/forgot-password` responde **204 sempre**, exista ou não a conta. Resposta diferente transformaria a rota pública num verificador de "quem tem conta na Messa" — mesma razão pela qual o login usa uma única mensagem para e-mail inexistente e senha errada.
+- Token: 24 bytes aleatórios, enviado só por e-mail; o banco guarda **apenas o SHA-256** (`users.password_reset_token_hash`), igual ao convite de equipe. Validade de 1 hora.
+- `POST /auth/reset-password` troca a senha e **revoga todos os `staff_devices` do usuário**: se o pedido veio de quem perdeu o acesso, quem estivesse logado indevidamente cai junto.
+- Rate limit por IP: 5 pedidos / 15 min para solicitar, 10 / 15 min para consumir.
+- Um pedido novo invalida o anterior (o hash é sobrescrito). Token usado é apagado.

@@ -49,6 +49,7 @@ export default function PlatformPage() {
                 <th>Slug</th>
                 <th>Status</th>
                 <th>Assinatura</th>
+                <th>Vence em</th>
                 <th />
               </tr>
             </thead>
@@ -62,8 +63,19 @@ export default function PlatformPage() {
                   </td>
                   <td>
                     <Badge tone={BILLING_TONE[t.billing.phase]}>{BILLING_LABEL[t.billing.phase]}</Badge>
-                    {t.billing.daysLeft !== null && (t.billing.phase === 'trial' || t.billing.phase === 'past_due') && (
-                      <span className="ml-1 text-xs text-neutral-500">{t.billing.daysLeft >= 0 ? `${t.billing.daysLeft}d` : `venceu há ${-t.billing.daysLeft}d`}</span>
+                  </td>
+                  <td className="whitespace-nowrap">
+                    {t.billing.expiresAt ? (
+                      <>
+                        <span>{new Date(t.billing.expiresAt).toLocaleDateString('pt-BR')}</span>
+                        {t.billing.daysLeft !== null && (
+                          <span className={`ml-2 text-xs ${t.billing.daysLeft < 0 ? 'text-red-700' : t.billing.daysLeft <= 5 ? 'text-amber-700' : 'text-neutral-500'}`}>
+                            {t.billing.daysLeft < 0 ? `venceu há ${-t.billing.daysLeft}d` : `em ${t.billing.daysLeft}d`}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-neutral-400">sem prazo</span>
                     )}
                   </td>
                   <td className="text-right">
@@ -81,7 +93,7 @@ export default function PlatformPage() {
               ))}
               {tenants.data?.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-neutral-500">
+                  <td colSpan={6} className="py-6 text-center text-neutral-500">
                     Nenhum restaurante ainda.
                   </td>
                 </tr>

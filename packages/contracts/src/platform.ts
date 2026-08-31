@@ -27,6 +27,8 @@ export const TenantSchema = z.object({
     phase: BillingPhaseSchema,
     daysLeft: z.number().int().nullable(),
     plan: BillingPlanSchema.nullable(),
+    /** Vencimento que vale hoje: fim do teste enquanto em trial, fim da assinatura depois. */
+    expiresAt: z.string().nullable(),
   }),
 });
 export type Tenant = z.infer<typeof TenantSchema>;

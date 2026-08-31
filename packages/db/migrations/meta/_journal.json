@@ -50,6 +50,13 @@
       "when": 1788101889929,
       "tag": "0006_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788179312984,
+      "tag": "0007_password_reset",
+      "breakpoints": true
     }
   ]
 }

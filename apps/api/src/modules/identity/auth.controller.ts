@@ -1,6 +1,17 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { LoginRequestSchema, SignupSchema, SwitchTenantSchema, TotpEnableSchema, type LoginRequest, type Signup } from '@messa/contracts';
+import {
+  ForgotPasswordSchema,
+  LoginRequestSchema,
+  ResetPasswordSchema,
+  SignupSchema,
+  SwitchTenantSchema,
+  TotpEnableSchema,
+  type ForgotPassword,
+  type LoginRequest,
+  type ResetPassword,
+  type Signup,
+} from '@messa/contracts';
 import { CurrentPrincipal, Public } from '../../common/decorators';
 import type { StaffPrincipal } from '../../common/request-context';
 import { ZodPipe } from '../../common/zod.pipe';
@@ -47,6 +58,27 @@ export class AuthController {
     const issued = await this.auth.refresh(req.cookies?.[REFRESH_COOKIE]);
     this.setRefreshCookie(res, issued);
     return issued.response;
+  }
+
+  /**
+   * BR-22 — pede o link de redefinição. Sempre 204, exista ou não a conta:
+   * resposta diferente viraria um verificador de quem tem conta na Messa.
+   */
+  @Public()
+  @RateLimit({ bucket: 'forgot-password', limit: 5, windowMs: 15 * 60_000 })
+  @Post('forgot-password')
+  @HttpCode(204)
+  async forgotPassword(@Body(new ZodPipe(ForgotPasswordSchema)) body: ForgotPassword) {
+    await this.auth.requestPasswordReset(body.email);
+  }
+
+  /** BR-22 — consome o token e troca a senha (revoga todos os dispositivos). */
+  @Public()
+  @RateLimit({ bucket: 'reset-password', limit: 10, windowMs: 15 * 60_000 })
+  @Post('reset-password')
+  @HttpCode(204)
+  async resetPassword(@Body(new ZodPipe(ResetPasswordSchema)) body: ResetPassword) {
+    await this.auth.resetPassword(body.token, body.password);
   }
 
   @Public()

@@ -1,4 +1,4 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { verify } from '@node-rs/argon2';
 import { createHash, randomBytes } from 'node:crypto';
@@ -11,6 +11,7 @@ import { hashPassword } from '../../common/password';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
 import { PlatformService } from '../platform/platform.service';
+import { EmailService } from './email.service';
 import { TotpService } from './totp.service';
 
 export interface IssuedTokens {
@@ -19,12 +20,17 @@ export interface IssuedTokens {
   refreshExpiresAt: Date;
 }
 
+/** BR-22: janela curta — o link chega por e-mail e é usado na hora. */
+const PASSWORD_RESET_TTL_MS = 60 * 60_000;
+
 /**
  * ADR-004. Access token curto + refresh opaco rotativo por dispositivo (StaffDevice).
  * Refresh cookie = `${userId}.${deviceId}.${secret}`; só o hash do secret é persistido.
  */
 @Injectable()
 export class AuthService {
+  private readonly log = new Logger(AuthService.name);
+
   constructor(
     @Inject(DB) private readonly db: DbHandle,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -32,6 +38,7 @@ export class AuthService {
     private readonly outbox: OutboxService,
     private readonly totp: TotpService,
     private readonly platform: PlatformService,
+    private readonly email: EmailService,
   ) {}
 
   /** Mantido por compatibilidade; a implementação vive em `common/password` (sem ciclo). */
@@ -70,6 +77,51 @@ export class AuthService {
     const memberships = await this.loadMemberships(user.id);
     const active = this.pickActive(memberships, tenantId);
     return this.issue(user, memberships, active, null);
+  }
+
+  /**
+   * BR-22 — pedido de redefinição de senha.
+   *
+   * Sempre resolve sem erro, mesmo com e-mail inexistente: responder diferente
+   * transformaria este endpoint público num verificador de "quem tem conta na Messa"
+   * (mesma razão pela qual o login usa uma mensagem só para e-mail errado e senha errada).
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    const token = randomBytes(24).toString('base64url');
+    const normalized = email.toLowerCase();
+    const user = await this.db.withGlobalTx(async (tx) => {
+      const [u] = await tx.select().from(schema.users).where(eq(schema.users.email, normalized));
+      if (!u) return null;
+      await tx
+        .update(schema.users)
+        .set({ passwordResetTokenHash: sha256(token), passwordResetExpiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS) })
+        .where(eq(schema.users.id, u.id));
+      return u;
+    });
+    if (!user) return;
+
+    const url = `${this.config.WEB_PUBLIC_URL}/staff/redefinir-senha?token=${token}`;
+    this.log.log(`redefinição de senha para ${normalized}: ${url}`);
+    await this.email.send(this.email.passwordResetEmail(normalized, user.name, url, PASSWORD_RESET_TTL_MS / 3_600_000));
+  }
+
+  /**
+   * BR-22 — consome o token e troca a senha. Revoga todos os dispositivos: se o pedido
+   * partiu de quem perdeu o acesso, quem estava logado indevidamente cai junto.
+   */
+  async resetPassword(token: string, password: string): Promise<void> {
+    const passwordHash = await hashPassword(password);
+    await this.db.withGlobalTx(async (tx) => {
+      const [user] = await tx.select().from(schema.users).where(eq(schema.users.passwordResetTokenHash, sha256(token)));
+      if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+        throw new BadRequestException({ code: 'reset_invalid', message: 'Link inválido ou expirado. Peça um novo.' });
+      }
+      await tx
+        .update(schema.users)
+        .set({ passwordHash, passwordResetTokenHash: null, passwordResetExpiresAt: null })
+        .where(eq(schema.users.id, user.id));
+      await tx.update(schema.staffDevices).set({ revokedAt: new Date() }).where(eq(schema.staffDevices.userId, user.id));
+    });
   }
 
   async refresh(cookieValue: string | undefined): Promise<IssuedTokens> {

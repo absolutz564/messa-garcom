@@ -52,6 +52,11 @@ function LoginForm() {
       <Button type="submit" className="w-full" disabled={busy || (needsTotp && totpCode.length !== 6)}>
         {busy ? 'Entrando…' : needsTotp ? 'Confirmar' : 'Entrar'}
       </Button>
+      {!needsTotp && (
+        <Link href="/staff/recuperar-senha" className="block text-center text-sm text-neutral-600 underline">
+          Esqueci minha senha
+        </Link>
+      )}
     </form>
   );
 }

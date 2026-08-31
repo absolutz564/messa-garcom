@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { LoginRequestSchema, SwitchTenantSchema, TotpEnableSchema, type LoginRequest } from '@messa/contracts';
+import { LoginRequestSchema, SignupSchema, SwitchTenantSchema, TotpEnableSchema, type LoginRequest, type Signup } from '@messa/contracts';
 import { CurrentPrincipal, Public } from '../../common/decorators';
 import type { StaffPrincipal } from '../../common/request-context';
 import { ZodPipe } from '../../common/zod.pipe';
@@ -25,6 +25,17 @@ export class AuthController {
   @HttpCode(200)
   async login(@Body(new ZodPipe(LoginRequestSchema)) body: LoginRequest, @Res({ passthrough: true }) res: FastifyReply) {
     const issued = await this.auth.login(body.email, body.password, body.tenantId, body.totpCode);
+    this.setRefreshCookie(res, issued);
+    return issued.response;
+  }
+
+  /** RF-06/BR-21 — cadastro self-service. Rate limit por IP é a única barreira (ADR-007). */
+  @Public()
+  @RateLimit({ bucket: 'signup', limit: 10, windowMs: 60 * 60_000 })
+  @Post('signup')
+  @HttpCode(201)
+  async signup(@Body(new ZodPipe(SignupSchema)) body: Signup, @Res({ passthrough: true }) res: FastifyReply) {
+    const issued = await this.auth.signup(body);
     this.setRefreshCookie(res, issued);
     return issued.response;
   }

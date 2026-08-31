@@ -67,6 +67,15 @@ Chaves em `packages/contracts/src/i18n/pt-BR.ts`. Textos aqui são a fonte; muda
 | `staff.billing.blockedBanner` | Assinatura vencida — novos atendimentos estão bloqueados até o pagamento. |
 | `staff.billing.cta` | Ver assinatura |
 
+## Cartaz da mesa (`apps/api/src/modules/tables/qr-card.ts`)
+| Chave | Texto |
+|---|---|
+| `card.headline` | Faça seu pedido pelo celular |
+| `card.hint` | Aponte a câmera do celular para o código |
+| `card.hint2` | Toque em "Iniciar atendimento" e faça seu pedido |
+| `card.slogan` | Messa · seu garçom virtual |
+| `card.site` | messa-garcom.com.br |
+
 ## Assinatura (admin)
 | Chave | Texto |
 |---|---|

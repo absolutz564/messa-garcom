@@ -22,6 +22,7 @@ export const DOMAIN_ERROR_STATUS: Record<string, number> = {
   staff_offline: 409,
   billing_blocked: 403,
   billing_unavailable: 503,
+  email_in_use: 409,
   invalid_transition: 409,
   conflict: 409,
   pending_orders: 409,

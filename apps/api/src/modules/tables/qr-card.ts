@@ -8,6 +8,8 @@ export const CARD_COPY = {
   slogan: 'Messa · seu garçom virtual',
   hint: 'Aponte a câmera do celular para o código',
   hint2: 'Toque em “Iniciar atendimento” e faça seu pedido',
+  /** RF-06: o cartaz também é canal de aquisição — dono de restaurante que vê a mesa. */
+  site: 'messa-garcom.com.br',
 };
 
 export interface CardInput {
@@ -42,7 +44,8 @@ export async function cardSvg(input: CardInput): Promise<string> {
   <image href="${qrPng}" x="180" y="470" width="640" height="640"/>
   <text x="500" y="1180" text-anchor="middle" font-size="36" fill="#333333">${esc(CARD_COPY.hint)}</text>
   <text x="500" y="1232" text-anchor="middle" font-size="30" fill="#666666">${esc(CARD_COPY.hint2)}</text>
-  <text x="500" y="1320" text-anchor="middle" font-size="34" font-weight="700" fill="${color}">${esc(CARD_COPY.slogan)}</text>
+  <text x="500" y="1310" text-anchor="middle" font-size="34" font-weight="700" fill="${color}">${esc(CARD_COPY.slogan)}</text>
+  <text x="500" y="1352" text-anchor="middle" font-size="26" fill="#888888">${esc(CARD_COPY.site)}</text>
 </svg>`;
 }
 
@@ -93,9 +96,10 @@ export async function cardsPdf(cards: CardInput[]): Promise<Uint8Array> {
     const img = await pdf.embedPng(qr);
     const qrSize = 180;
     page.drawImage(img, { x: slot.x + (card.w - qrSize) / 2, y: slot.y + 75, width: qrSize, height: qrSize });
-    center(page, CARD_COPY.hint, slot.x, slot.y + 55, 9, regular, rgb(0.2, 0.2, 0.2));
-    center(page, CARD_COPY.hint2, slot.x, slot.y + 42, 8, regular, rgb(0.4, 0.4, 0.4));
-    center(page, CARD_COPY.slogan, slot.x, slot.y + 18, 10, bold, color);
+    center(page, CARD_COPY.hint, slot.x, slot.y + 58, 9, regular, rgb(0.2, 0.2, 0.2));
+    center(page, CARD_COPY.hint2, slot.x, slot.y + 45, 8, regular, rgb(0.4, 0.4, 0.4));
+    center(page, CARD_COPY.slogan, slot.x, slot.y + 24, 10, bold, color);
+    center(page, CARD_COPY.site, slot.x, slot.y + 12, 8, regular, rgb(0.55, 0.55, 0.55));
   }
   return pdf.save();
 }

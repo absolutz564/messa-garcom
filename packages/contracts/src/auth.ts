@@ -13,6 +13,17 @@ export const LoginRequestSchema = z.object({
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 
+/** BR-21/RF-06 — cadastro self-service. Plano é escolhido depois, em /admin/assinatura. */
+export const SignupSchema = z.object({
+  restaurantName: z.string().trim().min(2).max(80),
+  adminName: z.string().trim().min(2).max(80),
+  email: z.string().email().max(254),
+  password: z.string().min(8).max(128),
+  /** LGPD: sem Termos de Uso ainda (PDR-018), só a Política de Privacidade. */
+  acceptedPrivacy: z.literal(true),
+});
+export type Signup = z.infer<typeof SignupSchema>;
+
 export const MembershipSummarySchema = z.object({
   tenantId: z.string().uuid(),
   tenantName: z.string(),

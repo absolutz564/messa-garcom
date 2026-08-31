@@ -5,10 +5,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
 import { schema, type DbHandle, type Tx } from '@messa/db';
-import type { AccessTokenClaims, LoginResponse, MembershipSummary, Role } from '@messa/contracts';
+import type { AccessTokenClaims, LoginResponse, MembershipSummary, Role, Signup } from '@messa/contracts';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
+import { PlatformService } from '../platform/platform.service';
 import { TotpService } from './totp.service';
 
 export interface IssuedTokens {
@@ -29,10 +30,25 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly outbox: OutboxService,
     private readonly totp: TotpService,
+    private readonly platform: PlatformService,
   ) {}
 
   static hashPassword(password: string) {
     return hash(password);
+  }
+
+  /**
+   * BR-21/RF-06 — cadastro self-service: cria restaurante + admin e já devolve a sessão.
+   * O login logo em seguida é o mesmo do fluxo normal (nada de emissão paralela de token).
+   */
+  async signup(input: Signup): Promise<IssuedTokens> {
+    await this.platform.signup({
+      restaurantName: input.restaurantName,
+      adminName: input.adminName,
+      email: input.email,
+      password: input.password,
+    });
+    return this.login(input.email, input.password);
   }
 
   async login(email: string, password: string, tenantId?: string, totpCode?: string): Promise<IssuedTokens> {

@@ -8,6 +8,7 @@ import {
   decidePinAttempt,
   deriveTableState,
   DomainError,
+  evaluateTenantBilling,
   generatePin,
   isBlockedWhileStaffOffline,
   RULES,
@@ -51,7 +52,10 @@ export class SessionService {
   async requestService(tenantId: string, tableId: string, deviceId: string): Promise<CustomerRequest> {
     return this.db.withTenantTx(tenantId, async (tx) => {
       const table = await this.lockTable(tx, tableId);
-      const [tenant] = await tx.select({ status: schema.tenants.status }).from(schema.tenants).where(eq(schema.tenants.id, tenantId));
+      const [tenant] = await tx
+        .select({ status: schema.tenants.status, billingStatus: schema.tenants.billingStatus, trialEndsAt: schema.tenants.trialEndsAt, subscriptionEndsAt: schema.tenants.subscriptionEndsAt })
+        .from(schema.tenants)
+        .where(eq(schema.tenants.id, tenantId));
       const state = await this.tableState(tx, table);
       const now = new Date();
 
@@ -87,6 +91,10 @@ export class SessionService {
       // para que dispositivo bloqueado continue recebendo a mensagem de bloqueio (BR-04).
       if (isBlockedWhileStaffOffline('open_session') && !this.presence.isOnline(tenantId)) {
         throw new DomainError('staff_offline', MESSAGES.staff_offline!);
+      }
+      // BR-20: inadimplência além da carência bloqueia só a criação de nova sessão — nunca login/pedidos em curso.
+      if (tenant && !evaluateTenantBilling({ billingStatus: tenant.billingStatus as 'trial' | 'active', trialEndsAt: tenant.trialEndsAt, subscriptionEndsAt: tenant.subscriptionEndsAt }).canServeCustomers) {
+        throw new DomainError('billing_blocked', MESSAGES.billing_blocked!);
       }
 
       const [row] = await tx
@@ -620,6 +628,8 @@ const MESSAGES: Record<string, string> = {
   device_rate_limited: 'Muitas tentativas. Aguarde alguns minutos ou chame um garçom.',
   pin_invalid: 'PIN inválido. Confira com quem está na mesa.',
   staff_offline: `${ptBR.offline.title}. ${ptBR.offline.body}`,
+  // BR-20: mesma mensagem de tenant_blocked — o cliente não precisa saber que é cobrança.
+  billing_blocked: 'Restaurante indisponível',
 };
 
 export { ForbiddenException };

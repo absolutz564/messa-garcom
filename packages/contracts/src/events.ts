@@ -26,6 +26,8 @@ export const EVENT_TYPES = [
   'bill.requested',
   'bill.acknowledged',
   'bill.cancelled',
+  'billing.charge_created',
+  'billing.paid',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -69,4 +71,6 @@ export const EVENT_ROOMS: Record<EventType, Array<'tenant' | 'session' | 'reques
   'bill.requested': ['tenant', 'session'],
   'bill.acknowledged': ['tenant', 'session'],
   'bill.cancelled': ['tenant', 'session'],
+  'billing.charge_created': ['tenant'],
+  'billing.paid': ['tenant'],
 };

@@ -9,7 +9,7 @@ Prioridade: **M** must · **S** should · **F** future.
 | RF-02 | Toda entidade operacional carrega `tenant_id`. | M |
 | RF-03 | Super Admin cria, bloqueia/desbloqueia e lista tenants. | M |
 | RF-04 | Super Admin vê métricas globais. | S |
-| RF-05 | Planos/assinaturas/cobrança. | F |
+| RF-05 | Planos/assinaturas/cobrança do tenant (entregue 2026-08-30, BR-20/PDR-017): trial 14 dias, planos Mensal/Semestral/Anual, Pix via Mercado Pago com confirmação automática. Pagamento da conta *pelo cliente* (RF-69) segue F. | M |
 
 ## Configuração do restaurante
 | ID | Requisito | Prio |

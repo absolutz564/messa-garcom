@@ -6,4 +6,5 @@ export * from './catalog';
 export * from './tenant';
 export * from './session';
 export * from './order';
+export * from './billing';
 export { ptBR } from './i18n/pt-BR';

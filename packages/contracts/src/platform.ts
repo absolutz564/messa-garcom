@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BillingPhaseSchema, BillingPlanSchema } from './billing';
 
 export const CreateTenantSchema = z.object({
   name: z.string().min(2).max(80),
@@ -21,6 +22,12 @@ export const TenantSchema = z.object({
   primaryColor: z.string(),
   status: z.enum(['active', 'blocked']),
   createdAt: z.string(),
+  /** BR-20 — visão do Super Admin sobre a cobrança (nunca afeta `status`, ver ADR-006). */
+  billing: z.object({
+    phase: BillingPhaseSchema,
+    daysLeft: z.number().int().nullable(),
+    plan: BillingPlanSchema.nullable(),
+  }),
 });
 export type Tenant = z.infer<typeof TenantSchema>;
 

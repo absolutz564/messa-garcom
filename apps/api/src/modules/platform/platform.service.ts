@@ -1,6 +1,7 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { desc, eq } from 'drizzle-orm';
 import { schema, type DbHandle } from '@messa/db';
+import { evaluateTenantBilling, RULES } from '@messa/domain';
 import type { CreateTenant, Tenant } from '@messa/contracts';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
@@ -27,7 +28,9 @@ export class PlatformService {
       const [existing] = await tx.select({ id: schema.tenants.id }).from(schema.tenants).where(eq(schema.tenants.slug, input.slug));
       if (existing) throw new ConflictException({ code: 'slug_taken', message: 'Slug já em uso' });
 
-      const [tenant] = await tx.insert(schema.tenants).values({ slug: input.slug, name: input.name }).returning();
+      // BR-20: todo tenant novo nasce em teste grátis de 14 dias.
+      const trialEndsAt = new Date(Date.now() + RULES.BILLING_TRIAL_DAYS * 86_400_000);
+      const [tenant] = await tx.insert(schema.tenants).values({ slug: input.slug, name: input.name, trialEndsAt }).returning();
 
       // Admin do restaurante: reaproveita usuário existente (RF-72) ou cria.
       const email = input.adminEmail.toLowerCase();
@@ -78,6 +81,11 @@ export class PlatformService {
 }
 
 function toDto(t: typeof schema.tenants.$inferSelect): Tenant {
+  const billing = evaluateTenantBilling({
+    billingStatus: t.billingStatus as 'trial' | 'active',
+    trialEndsAt: t.trialEndsAt,
+    subscriptionEndsAt: t.subscriptionEndsAt,
+  });
   return {
     id: t.id,
     slug: t.slug,
@@ -86,5 +94,6 @@ function toDto(t: typeof schema.tenants.$inferSelect): Tenant {
     primaryColor: t.primaryColor,
     status: t.status as Tenant['status'],
     createdAt: t.createdAt.toISOString(),
+    billing: { phase: billing.phase, daysLeft: billing.daysLeft, plan: t.billingPlan as Tenant['billing']['plan'] },
   };
 }

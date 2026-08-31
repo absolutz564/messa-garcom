@@ -7,6 +7,9 @@ import { errorMessage, useApi } from '@/lib/use-api';
 import { StaffShell } from '@/components/staff-shell';
 import { Badge, Button, Card, ErrorText, Field, Input, PageTitle } from '@/components/ui';
 
+const BILLING_LABEL: Record<Tenant['billing']['phase'], string> = { trial: 'Em teste', active: 'Ativa', past_due: 'Pendente', blocked: 'Bloqueada' };
+const BILLING_TONE: Record<Tenant['billing']['phase'], 'neutral' | 'green' | 'red' | 'amber'> = { trial: 'neutral', active: 'green', past_due: 'amber', blocked: 'red' };
+
 export default function PlatformPage() {
   const tenants = useApi<Tenant[]>('/platform/tenants');
   const [form, setForm] = useState({ name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '' });
@@ -45,6 +48,7 @@ export default function PlatformPage() {
                 <th className="py-2">Nome</th>
                 <th>Slug</th>
                 <th>Status</th>
+                <th>Assinatura</th>
                 <th />
               </tr>
             </thead>
@@ -55,6 +59,12 @@ export default function PlatformPage() {
                   <td className="text-neutral-500">{t.slug}</td>
                   <td>
                     <Badge tone={t.status === 'active' ? 'green' : 'red'}>{t.status === 'active' ? 'Ativo' : 'Bloqueado'}</Badge>
+                  </td>
+                  <td>
+                    <Badge tone={BILLING_TONE[t.billing.phase]}>{BILLING_LABEL[t.billing.phase]}</Badge>
+                    {t.billing.daysLeft !== null && (t.billing.phase === 'trial' || t.billing.phase === 'past_due') && (
+                      <span className="ml-1 text-xs text-neutral-500">{t.billing.daysLeft >= 0 ? `${t.billing.daysLeft}d` : `venceu há ${-t.billing.daysLeft}d`}</span>
+                    )}
                   </td>
                   <td className="text-right">
                     {t.status === 'active' ? (
@@ -71,7 +81,7 @@ export default function PlatformPage() {
               ))}
               {tenants.data?.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-6 text-center text-neutral-500">
+                  <td colSpan={5} className="py-6 text-center text-neutral-500">
                     Nenhum restaurante ainda.
                   </td>
                 </tr>

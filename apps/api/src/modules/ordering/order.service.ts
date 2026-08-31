@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { schema, type DbHandle, type Tx } from '@messa/db';
-import { decideOrderPlacement, DomainError, isBlockedWhileStaffOffline, RULES, validateOrderLines, type Actor, type CatalogProduct } from '@messa/domain';
+import { decideOrderPlacement, DomainError, evaluateTenantBilling, isBlockedWhileStaffOffline, RULES, validateOrderLines, type Actor, type CatalogProduct } from '@messa/domain';
 import { ptBR, type CreateOrder, type CreateOrderResult, type Order, type SessionConsumption, type StaffOrder } from '@messa/contracts';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
@@ -72,6 +72,14 @@ export class OrderService {
         // (BR-10). Recusa antes de gravar qualquer coisa.
         if (isBlockedWhileStaffOffline('resume_session') && !this.presence.isOnline(tenantId)) {
           throw new DomainError('staff_offline', `${ptBR.offline.title}. ${ptBR.offline.body}`);
+        }
+        // BR-20: inadimplência além da carência bloqueia reabrir sessão inativa (mesmo ponto de BR-19).
+        const [tenant] = await tx
+          .select({ billingStatus: schema.tenants.billingStatus, trialEndsAt: schema.tenants.trialEndsAt, subscriptionEndsAt: schema.tenants.subscriptionEndsAt })
+          .from(schema.tenants)
+          .where(eq(schema.tenants.id, tenantId));
+        if (tenant && !evaluateTenantBilling({ billingStatus: tenant.billingStatus as 'trial' | 'active', trialEndsAt: tenant.trialEndsAt, subscriptionEndsAt: tenant.subscriptionEndsAt }).canServeCustomers) {
+          throw new DomainError('billing_blocked', 'Restaurante indisponível');
         }
         // BR-09: uma solicitação pendente por (mesa, dispositivo); enquanto existe, não aceita novo pedido.
         const dev = actor as Extract<OrderActor, { kind: 'customer' }>;

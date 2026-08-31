@@ -62,6 +62,30 @@ Chaves em `packages/contracts/src/i18n/pt-BR.ts`. Textos aqui são a fonte; muda
 | `staff.table.state.occupied` | Em atendimento |
 | `staff.table.state.inactive` | Inativa |
 | `staff.table.state.disabled` | Desativada |
+| `staff.billing.trialBanner` | Teste grátis — {days} dia(s) restante(s). |
+| `staff.billing.pastDueBanner` | Pagamento pendente. Regularize em até {days} dia(s) para não bloquear novos atendimentos. |
+| `staff.billing.blockedBanner` | Assinatura vencida — novos atendimentos estão bloqueados até o pagamento. |
+| `staff.billing.cta` | Ver assinatura |
+
+## Assinatura (admin)
+| Chave | Texto |
+|---|---|
+| `billing.title` | Assinatura |
+| `billing.plan.monthly` | Mensal — R$ 149/mês |
+| `billing.plan.semiannual` | Semestral — R$ 800 a cada 6 meses (economia de R$ 94) |
+| `billing.plan.annual` | Anual — R$ 1.500/ano (economia de R$ 288) |
+| `billing.status.trial` | Em teste — {days} dia(s) restante(s) |
+| `billing.status.active` | Ativa até {date} |
+| `billing.status.pastDue` | Pagamento pendente — regularize até {date} para não bloquear novos atendimentos |
+| `billing.status.blocked` | Assinatura vencida — novos atendimentos bloqueados até o pagamento |
+| `billing.pix.generate` | Gerar Pix |
+| `billing.pix.waiting` | Aguardando pagamento... |
+| `billing.pix.confirmed` | Pagamento confirmado! Assinatura renovada até {date}. |
+| `billing.pix.copy` | Copiar código Pix |
+| `billing.pix.copied` | Copiado |
+| `billing.pix.expired` | Este Pix expirou. Gere um novo. |
+| `billing.pix.disclaimer` | Não guardamos cartão nem cobramos sozinhos no próximo ciclo. Renovar é sempre uma ação sua — pague o Pix a cada vencimento. |
+| `billing.choosePlan` | Escolher plano |
 | `staff.offline.title` | Sem conexão com o Messa |
 | `staff.offline.body` | Os dados na tela são de {time} e podem estar desatualizados. Solicitações e pedidos novos não aparecem até a conexão voltar. |
 | `staff.offline.hint` | Enquanto isso, abra o painel no celular pelo 4G: messa-garcom.com.br/staff |

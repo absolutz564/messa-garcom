@@ -92,3 +92,16 @@ Toda operação que muda estado de mesa/sessão/solicitação executa dentro de 
 
 ## BR-17 Auditoria
 Toda transição grava `DomainEvent` com `actor` (`{kind: customer|staff|system, id}`) na mesma transação.
+
+## BR-20 Cobrança da assinatura (RF-05) — PDR-017
+- Cada tenant nasce em `billingStatus=trial`, `trialEndsAt = createdAt + 14 dias`. Ao primeiro pagamento confirmado, `billingStatus=active` e permanece assim (renovações só estendem `subscriptionEndsAt`; não há um estado "past_due" persistido — é sempre derivado das datas na leitura, nunca salvo, para não haver dessincronia entre o gate e a tela).
+- Planos e ciclo: Mensal R$ 149 / 30 dias, Semestral R$ 800 / 180 dias, Anual R$ 1.500 / 365 dias. Renovar estende a partir do vencimento vigente quando ainda no futuro (quem paga adiantado não perde dias).
+- Acesso do tenant, calculado a cada leitura a partir de `(billingStatus, trialEndsAt, subscriptionEndsAt, now)`:
+  1. `now` até o vencimento (trial ou assinatura) ⇒ liberado.
+  2. Até 3 dias após o vencimento (carência) ⇒ liberado, com aviso.
+  3. Depois da carência ⇒ **bloqueado**: `POST /public/tables/{token}/requests` (`open_session`) e `resume_session` recusam com `billing_blocked` — mesmo ponto de checagem do BR-19, mas causa e mensagem diferentes. Sessões já abertas, pedidos em andamento, login de staff e a própria tela de cobrança **nunca** são afetados — o admin sempre consegue entrar para pagar.
+  4. `subscriptionEndsAt IS NULL` (tenant migrado antes deste controle existir) ⇒ nunca bloqueia.
+- Renovação automática: 5 dias antes do vencimento, se não houver cobrança Pix pendente válida, o sistema gera uma sozinho (plano = último escolhido pelo admin, ou Mensal por padrão) e publica `billing.charge_created` (evento para banner/e-mail). Job roda a cada 5 min.
+- Confirmação: **automática, nunca manual**. Job de fundo consulta o Mercado Pago para toda cobrança `pending` não expirada; a tela de cobrança também consulta enquanto aberta (mesma função). Pagamento confirmado ⇒ estende `subscriptionEndsAt`, `billingStatus=active`, evento `billing.paid`. Nenhum cartão é guardado; nenhuma cobrança é gerada sem que o restaurante volte a pagar a cada ciclo — não é débito automático.
+- Cobrança expira em 30 min sem pagamento (mesma janela do Terap-IA Kids); expirada não bloqueia nem soma a nenhuma janela de anti-spam.
+- Bloqueio por cobrança é **independente** do bloqueio manual do Super Admin (`tenants.status`, BR-01) — nunca escreve nesse campo, para não trancar o admin fora do painel exatamente quando ele precisa pagar.

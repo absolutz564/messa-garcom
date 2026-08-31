@@ -28,6 +28,8 @@ Envelope:
 | `catalog.changed` | (sem payload; cliente refaz fetch) | todas as `session` do tenant |
 | `table.changed` | table | `tenant` |
 | `tenant.blocked` / `tenant.unblocked` | — | `tenant` |
+| `billing.charge_created` | plan, amount_cents, expires_at | `tenant` |
+| `billing.paid` | plan, subscription_ends_at | `tenant` |
 
 Regra: payloads nunca incluem PIN. O PIN é obtido por endpoint autenticado (`GET /sessions/{id}` como participante ou staff).
 

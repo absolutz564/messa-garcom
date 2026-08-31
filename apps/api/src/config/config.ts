@@ -16,6 +16,8 @@ const ConfigSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Messa <no-reply@messa-garcom.com.br>'),
   UPLOADS_DIR: z.string().optional(),
+  /** BR-20 — sem token, a cobrança automática fica indisponível (o admin vê aviso, nada quebra). */
+  MERCADO_PAGO_ACCESS_TOKEN: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;

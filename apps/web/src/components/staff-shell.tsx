@@ -8,6 +8,7 @@ import { getSession, logout, refreshSession } from '@/lib/api';
 import { hexToRgbTriplet } from '@/lib/format';
 import { Button } from './ui';
 import { DialogProvider } from './dialog';
+import { BillingBanner } from './billing-banner';
 
 interface NavItem {
   href: string;
@@ -95,6 +96,7 @@ export function StaffShell({
           </div>
         </div>
       </header>
+      {session.activeTenant && <BillingBanner session={session} />}
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
     </div>
     </DialogProvider>

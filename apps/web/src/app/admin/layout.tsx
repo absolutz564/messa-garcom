@@ -9,6 +9,7 @@ const NAV = [
   { href: '/admin/tables', label: 'Mesas' },
   { href: '/admin/team', label: 'Equipe' },
   { href: '/admin/settings', label: 'Restaurante' },
+  { href: '/admin/assinatura', label: 'Assinatura' },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

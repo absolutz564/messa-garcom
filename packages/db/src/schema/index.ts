@@ -38,13 +38,21 @@ export const tenants = pgTable(
     name: text('name').notNull(),
     logoUrl: text('logo_url'),
     primaryColor: text('primary_color').notNull().default('#e11d48'),
+    /** Bloqueio manual do Super Admin (abuso/fraude) — nunca escrito pelo módulo de cobrança (BR-20/ADR-006). */
     status: text('status').notNull().default('active'),
     settings: jsonb('settings').notNull().default({}),
     createdAt: createdAt(),
+    /** BR-20 — cobrança da assinatura. Nunca persiste "past_due"/bloqueado: é sempre calculado na leitura. */
+    billingStatus: text('billing_status').notNull().default('trial'),
+    billingPlan: text('billing_plan'),
+    trialEndsAt: ts('trial_ends_at'),
+    subscriptionEndsAt: ts('subscription_ends_at'),
   },
   (t) => [
     uniqueIndex('tenants_slug_uq').on(t.slug),
     check('tenants_status_chk', sql`${t.status} IN ('active','blocked')`),
+    check('tenants_billing_status_chk', sql`${t.billingStatus} IN ('trial','active')`),
+    check('tenants_billing_plan_chk', sql`${t.billingPlan} IS NULL OR ${t.billingPlan} IN ('monthly','semiannual','annual')`),
   ],
 );
 
@@ -422,6 +430,37 @@ export const orderItems = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Cobrança da assinatura (BR-20/PDR-017/ADR-006)
+// ---------------------------------------------------------------------------
+
+export const pixCharges = pgTable(
+  'pix_charges',
+  {
+    id: id(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    provider: text('provider').notNull(),
+    providerChargeId: text('provider_charge_id').notNull(),
+    plan: text('plan').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    status: text('status').notNull().default('pending'),
+    qrCode: text('qr_code').notNull(),
+    qrCodeBase64: text('qr_code_base64'),
+    expiresAt: ts('expires_at').notNull(),
+    paidAt: ts('paid_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('pix_charges_tenant_status_idx').on(t.tenantId, t.status, t.expiresAt),
+    /** Varredura do job de confirmação/expiração (todas as tenants). */
+    index('pix_charges_pending_idx').on(t.status, t.expiresAt),
+    check('pix_charges_plan_chk', sql`${t.plan} IN ('monthly','semiannual','annual')`),
+    check('pix_charges_status_chk', sql`${t.status} IN ('pending','paid','expired')`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Infra: outbox e idempotência
 // ---------------------------------------------------------------------------
 
@@ -481,4 +520,5 @@ export const TENANT_SCOPED_TABLES = [
   'order_items',
   'domain_events',
   'idempotency_keys',
+  'pix_charges',
 ] as const;

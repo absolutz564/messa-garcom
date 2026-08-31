@@ -118,5 +118,37 @@ export const ptBR = {
         disabled: 'Desativada',
       },
     },
+    /** BR-20 — banner de assinatura no painel. */
+    billing: {
+      trialBanner: 'Teste grátis — {days} dia(s) restante(s).',
+      pastDueBanner: 'Pagamento pendente. Regularize em até {days} dia(s) para não bloquear novos atendimentos.',
+      blockedBanner: 'Assinatura vencida — novos atendimentos estão bloqueados até o pagamento.',
+      cta: 'Ver assinatura',
+    },
+  },
+  /** BR-20 — tela de assinatura do admin. */
+  billing: {
+    title: 'Assinatura',
+    plan: {
+      monthly: 'Mensal — R$ 149/mês',
+      semiannual: 'Semestral — R$ 800 a cada 6 meses (economia de R$ 94)',
+      annual: 'Anual — R$ 1.500/ano (economia de R$ 288)',
+    },
+    status: {
+      trial: 'Em teste — {days} dia(s) restante(s)',
+      active: 'Ativa até {date}',
+      pastDue: 'Pagamento pendente — regularize até {date} para não bloquear novos atendimentos',
+      blocked: 'Assinatura vencida — novos atendimentos bloqueados até o pagamento',
+    },
+    pix: {
+      generate: 'Gerar Pix',
+      waiting: 'Aguardando pagamento...',
+      confirmed: 'Pagamento confirmado! Assinatura renovada até {date}.',
+      copy: 'Copiar código Pix',
+      copied: 'Copiado',
+      expired: 'Este Pix expirou. Gere um novo.',
+      disclaimer: 'Não guardamos cartão nem cobramos sozinhos no próximo ciclo. Renovar é sempre uma ação sua — pague o Pix a cada vencimento.',
+    },
+    choosePlan: 'Escolher plano',
   },
 } as const;

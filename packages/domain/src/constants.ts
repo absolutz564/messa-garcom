@@ -26,4 +26,12 @@ export const RULES = {
   PUBLIC_TOKEN_LENGTH: 12,
   /** BR-19: carência entre o último socket de staff cair e o tenant virar offline. */
   STAFF_PRESENCE_GRACE_MS: 45_000,
+  /** BR-20: teste grátis do tenant. */
+  BILLING_TRIAL_DAYS: 14,
+  /** BR-20: dias após o vencimento (trial ou assinatura) antes de bloquear `open_session`/`resume_session`. */
+  BILLING_GRACE_DAYS: 3,
+  /** BR-20: dias antes do vencimento em que o sistema gera a próxima cobrança sozinho. */
+  BILLING_RENEWAL_LEAD_DAYS: 5,
+  /** BR-20: janela de validade de uma cobrança Pix (mesma do Terap-IA Kids). */
+  BILLING_CHARGE_TTL_MIN: 30,
 } as const;

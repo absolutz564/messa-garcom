@@ -84,6 +84,12 @@ describe('billing (e2e)', () => {
     expect(open.statusCode).toBe(403);
     expect(open.json().code).toBe('billing_blocked');
 
+    // BR-14: o garçom não pode virar uma via de escape do bloqueio abrindo mesa livre direto.
+    const table2 = (await staff(admin, 'POST', '/admin/tables', { displayName: 'Mesa Billing 2' })).json();
+    const openByStaff = await staff(admin, 'POST', `/staff/tables/${table2.id}/open`);
+    expect(openByStaff.statusCode).toBe(403);
+    expect(openByStaff.json().code).toBe('billing_blocked');
+
     // Login e a tela de cobrança continuam acessíveis — é o próprio admin que precisa pagar.
     const status = await staff(admin, 'GET', '/admin/billing');
     expect(status.statusCode).toBe(200);

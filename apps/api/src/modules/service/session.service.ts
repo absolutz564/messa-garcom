@@ -421,6 +421,15 @@ export class SessionService {
       const state = await this.tableState(tx, table);
       if (state === 'disabled') throw new NotFoundException({ code: 'not_found' });
       if (state === 'occupied' || state === 'inactive') throw new ConflictException({ code: 'session_active', message: 'Mesa já está em atendimento' });
+      // BR-20: sem isso, a equipe abriria mesa manualmente pra sempre e o bloqueio por
+      // inadimplência nunca teria efeito — o cliente nunca precisaria usar o QR.
+      const [tenant] = await tx
+        .select({ billingStatus: schema.tenants.billingStatus, trialEndsAt: schema.tenants.trialEndsAt, subscriptionEndsAt: schema.tenants.subscriptionEndsAt })
+        .from(schema.tenants)
+        .where(eq(schema.tenants.id, tenantId));
+      if (tenant && !evaluateTenantBilling({ billingStatus: tenant.billingStatus as 'trial' | 'active', trialEndsAt: tenant.trialEndsAt, subscriptionEndsAt: tenant.subscriptionEndsAt }).canServeCustomers) {
+        throw new DomainError('billing_blocked', 'Assinatura vencida. Regularize o pagamento em Administração › Assinatura para abrir novas mesas.');
+      }
       const session = await this.openSession(tx, tenantId, table, role, actor);
       const now = new Date();
       const others = await tx

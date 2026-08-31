@@ -46,6 +46,8 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
   const [flash, setFlash] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [activeCat, setActiveCat] = useState(menu.categories[0]?.id ?? null);
+  // BR-19: há alguém da equipe conectado? Semente do SSR, depois socket + polling.
+  const [staffOnline, setStaffOnline] = useState(table.staffOnline);
   const cart = useCart(`messa_cart_${token}`);
   const uiRef = useRef(ui);
   uiRef.current = ui;
@@ -86,7 +88,8 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
       window.localStorage.removeItem(requestKey(token));
     }
     try {
-      const { state } = await publicApi.tableState(token);
+      const { state, staffOnline: online } = await publicApi.tableState(token);
+      setStaffOnline(online);
       setUi({ kind: 'browsing', tableState: state });
     } catch {
       setUi({ kind: 'browsing', tableState: table.state });
@@ -96,6 +99,18 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // BR-19: o socket `presence` é o caminho rápido; este polling cobre quem ainda não tem
+  // cookie de dispositivo (e portanto não tem socket) e a queda do próprio socket.
+  useEffect(() => {
+    const refresh = () =>
+      publicApi
+        .presence(token)
+        .then((p) => setStaffOnline(p.staffOnline))
+        .catch(() => undefined);
+    const id = window.setInterval(refresh, 20_000);
+    return () => window.clearInterval(id);
+  }, [token]);
 
   // ---- polling de fallback (RNF-04): aguardando liberação ou confirmação
   const pollingId = ui.kind === 'waiting' ? ui.request.id : ui.kind === 'session' ? ui.awaiting : null;
@@ -147,7 +162,7 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
     }
     if (e.type === 'service_area.changed' || e.type === 'catalog.changed') window.location.reload();
     if (cur.kind === 'browsing' && e.type.startsWith('session.')) void bootstrap();
-  }, { enabled: ui.kind !== 'loading' });
+  }, { enabled: ui.kind !== 'loading', onPresence: setStaffOnline });
 
   // ---- ações
   async function requestService() {
@@ -160,6 +175,8 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
     } catch (e) {
       if (isApiError(e, 'session_active')) setUi({ kind: 'browsing', tableState: 'occupied', pinMode: true });
       else if (isApiError(e, 'device_blocked') || isApiError(e, 'table_rate_limited')) setUi({ kind: 'notice', title: 'Aguarde um pouco', body: e.error.message });
+      // BR-19: o backend é a autoridade; se ele recusou, a tela estava otimista demais.
+      else if (isApiError(e, 'staff_offline')) setStaffOnline(false);
       else setError(isApiError(e) ? e.error.message : 'Falha de conexão. Tente novamente.');
     } finally {
       setBusy(false);
@@ -211,6 +228,9 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
         }
       } else if (isApiError(e, 'session_closed') || isApiError(e, 'not_in_session')) {
         void bootstrap();
+      } else if (isApiError(e, 'staff_offline')) {
+        // BR-19: só o caminho `resume_session` cai aqui; o carrinho fica intacto para reenvio.
+        setStaffOnline(false);
       } else setError(isApiError(e) ? e.error.message : 'Falha de conexão. Tente novamente.');
     } finally {
       setBusy(false);
@@ -255,7 +275,10 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
   }
 
   const billRequested = ui.kind === 'session' && Boolean(ui.session.bill.requestedAt);
-  const canOrder = inSession && !(ui.kind === 'session' && ui.awaiting) && !billRequested;
+  // BR-19: em sessão inativa o pedido vira `resume_session` e depende do caixa confirmar —
+  // sem equipe conectada ele seria cancelado na expiração, então nem deixa montar o carrinho.
+  const orderBlockedByOffline = !staffOnline && ui.kind === 'session' && ui.session.status === 'inactive';
+  const canOrder = inSession && !(ui.kind === 'session' && ui.awaiting) && !billRequested && !orderBlockedByOffline;
 
   return (
     <main className="mx-auto min-h-screen max-w-md bg-white pb-44">
@@ -336,23 +359,39 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
         {ui.kind === 'browsing' && !ui.pinMode && ui.tableState === 'free' && (
           <>
             {error && <p className="mb-2 text-center text-sm text-red-600">{error}</p>}
-            <button type="button" onClick={requestService} disabled={busy} className="w-full rounded-xl bg-brand px-4 py-3 font-semibold text-white disabled:opacity-60">
-              {busy ? '…' : ptBR.menu.cta.start}
-            </button>
+            {staffOnline ? (
+              <button type="button" onClick={requestService} disabled={busy} className="w-full rounded-xl bg-brand px-4 py-3 font-semibold text-white disabled:opacity-60">
+                {busy ? '…' : ptBR.menu.cta.start}
+              </button>
+            ) : (
+              <OfflineNotice />
+            )}
           </>
         )}
 
         {ui.kind === 'browsing' && !ui.pinMode && ui.tableState === 'requested' && (
           <>
             <p className="mb-2 text-center text-sm text-neutral-600">Outra pessoa desta mesa já solicitou atendimento.</p>
-            <button type="button" onClick={requestService} disabled={busy} className="w-full rounded-xl border border-neutral-300 px-4 py-3 font-semibold text-neutral-800">
-              Solicitar com este celular também
-            </button>
+            {staffOnline ? (
+              <button type="button" onClick={requestService} disabled={busy} className="w-full rounded-xl border border-neutral-300 px-4 py-3 font-semibold text-neutral-800">
+                Solicitar com este celular também
+              </button>
+            ) : (
+              <OfflineNotice />
+            )}
           </>
         )}
 
         {ui.kind === 'browsing' && (ui.pinMode || ui.tableState === 'occupied' || ui.tableState === 'inactive') && (
-          <PinForm busy={busy} error={error} onSubmit={join} allowRequest={ui.tableState === 'inactive'} onRequest={requestService} />
+          <>
+            <PinForm busy={busy} error={error} onSubmit={join} allowRequest={ui.tableState === 'inactive' && staffOnline} onRequest={requestService} />
+            {/* Entrar com PIN segue valendo; o que sumiu foi o "não tenho o PIN" (BR-19). */}
+            {!staffOnline && ui.tableState === 'inactive' && (
+              <div className="mt-3">
+                <OfflineNotice />
+              </div>
+            )}
+          </>
         )}
 
         {ui.kind === 'waiting' && (
@@ -389,10 +428,14 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
           </div>
         )}
 
-        {ui.kind === 'session' && !ui.awaiting && !ui.session.bill.requestedAt && (
+        {ui.kind === 'session' && !ui.awaiting && !ui.session.bill.requestedAt && orderBlockedByOffline && <OfflineNotice />}
+
+        {ui.kind === 'session' && !ui.awaiting && !ui.session.bill.requestedAt && !orderBlockedByOffline && (
           <>
             {error && <p className="mb-2 text-center text-sm text-red-600">{error}</p>}
             {flash && !error && <p className="mb-2 text-center text-sm text-green-700">{flash}</p>}
+            {/* BR-19: o pedido é gravado e o painel o encontra na reconexão — avisa, não bloqueia. */}
+            {!staffOnline && <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">{ptBR.offline.warn}</p>}
             {cart.count > 0 ? (
               <button type="button" onClick={tab === 'cart' ? sendOrder : () => setTab('cart')} disabled={busy} className="flex w-full items-center justify-between rounded-xl bg-brand px-4 py-3 font-semibold text-white disabled:opacity-60">
                 <span>{tab === 'cart' ? ptBR.order.send : `Ver pedido (${cart.count})`}</span>
@@ -426,6 +469,16 @@ function MenuViewInner({ table, menu, token }: { table: PublicTable; menu: Menu;
         )}
       </footer>
     </main>
+  );
+}
+
+/** BR-19 — equipe sem conexão numa ação que depende de um humano. Não é erro do cliente. */
+function OfflineNotice() {
+  return (
+    <div className="rounded-xl bg-amber-50 px-4 py-3 text-center">
+      <p className="font-semibold text-amber-900">{ptBR.offline.title}</p>
+      <p className="mt-1 text-sm text-amber-800">{ptBR.offline.body}</p>
+    </div>
   );
 }
 

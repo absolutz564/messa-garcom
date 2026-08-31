@@ -69,5 +69,11 @@ export const PublicTableSchema = z.object({
   tenant: TenantBrandingSchema,
   table: z.object({ id: z.string().uuid(), displayName: z.string() }),
   state: z.enum(['free', 'requested', 'occupied', 'inactive']),
+  /** BR-19: há alguém da equipe conectado? */
+  staffOnline: z.boolean(),
 });
 export type PublicTable = z.infer<typeof PublicTableSchema>;
+
+/** Resposta de GET /public/tables/{token}/presence (BR-19). Barata: serve para polling. */
+export const StaffPresenceSchema = z.object({ staffOnline: z.boolean() });
+export type StaffPresence = z.infer<typeof StaffPresenceSchema>;

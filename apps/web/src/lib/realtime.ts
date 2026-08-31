@@ -38,15 +38,22 @@ export function useRealtime(onEvent: Handler, opts: { staff?: boolean; enabled?:
   }, [staff, enabled]);
 }
 
-/** Reconecta o socket quando o cookie de participante muda (entrou/saiu da sessão). */
-export function useRealtimeKeyed(key: string, onEvent: Handler, opts: { enabled?: boolean } = {}) {
+/**
+ * Reconecta o socket quando o cookie de participante muda (entrou/saiu da sessão).
+ * `onPresence` recebe a virada de presença da equipe (BR-19) — mensagem `presence`,
+ * separada de `event` porque presença não é evento de domínio (ADR-005).
+ */
+export function useRealtimeKeyed(key: string, onEvent: Handler, opts: { enabled?: boolean; onPresence?: (staffOnline: boolean) => void } = {}) {
   const handler = useRef(onEvent);
   handler.current = onEvent;
+  const presence = useRef(opts.onPresence);
+  presence.current = opts.onPresence;
   const { enabled = true } = opts;
   useEffect(() => {
     if (!enabled) return;
     const socket = io(API_URL, { withCredentials: true, reconnectionDelayMax: 5000 });
     socket.on('event', (e: DomainEventEnvelope) => handler.current(e));
+    socket.on('presence', (p: { staffOnline: boolean }) => presence.current?.(p.staffOnline));
     return () => {
       socket.disconnect();
     };

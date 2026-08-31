@@ -35,3 +35,14 @@ Regra: payloads nunca incluem PIN. O PIN é obtido por endpoint autenticado (`GE
 - Namespace único. Handshake com cookies (cliente) ou `Authorization` (staff).
 - Servidor atribui rooms; cliente não pode `join` arbitrário.
 - Mensagem `event` com o envelope acima. `ack` não é usado; o estado é sempre reidratado via REST em reconexão.
+
+### Mensagem `presence` (BR-19, ADR-005)
+Separada de `event` porque **não é evento de domínio**: não passa pela outbox, não entra em `domain_events` e não aparece em `EVENT_TYPES`. É estado de transporte, derivado da contagem de sockets de staff.
+
+```json
+{ "staffOnline": false }
+```
+
+- Room: `tenant-sessions:{tenant_id}` (todos os clientes do tenant).
+- Emitida só na virada, depois da carência de 45 s (`RULES.STAFF_PRESENCE_GRACE_MS`).
+- Fallback REST: `GET /public/tables/{token}/presence` → `{ "staffOnline": bool }`, e o mesmo campo em `GET /public/tables/{token}`. O polling do cliente (20 s) cobre quem ainda não tem cookie de dispositivo e portanto não tem socket.

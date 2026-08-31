@@ -63,6 +63,21 @@ Se existem pedidos `submitted` (não acknowledged) ⇒ 409 `{pending_orders: [..
 - Staff confirma (`bill_acknowledged_at`) ⇒ cliente vê "Sua conta está a caminho" com o total. O encerramento continua sendo a ação explícita após o pagamento (BR-13).
 - "Continuar sessão" após inatividade mantém o estado da conta; "nova sessão" começa sem pedido de conta.
 
+## BR-19 Presença da equipe (RF-83, PDR-016)
+A equipe está **online** para um tenant enquanto houver ao menos um socket de staff na room `tenant:{id}` — qualquer dispositivo serve (o computador do caixa, o celular do garçom no 4G). Sem nenhum socket, o tenant fica **offline** após uma carência de 45 s (reload de página não pode virar offline); qualquer reconexão volta a online imediatamente.
+
+Ações do cliente com a equipe offline:
+
+| Ação | Depende de humano? | Com a equipe offline |
+|---|---|---|
+| `open_session` (iniciar atendimento, inclusive "não tenho o PIN") | Sim — operador libera | **409 `staff_offline`.** A solicitação expiraria em 10 min (BR-03) sem ninguém para aprovar. |
+| Pedido que cai em `resume_session` (BR-09, sessão inativa) | Sim — caixa confirma | **409 `staff_offline`.** A expiração cancelaria o pedido (BR-10). |
+| Pedido em sessão `active` | Não | **Permitido.** É gravado e aparece no painel na reconexão; o cliente vê um aviso, nunca um erro. |
+| Pedir a conta (BR-18) | Sim, mas sem prazo | **Permitido.** Fica pendente até alguém ver; o cliente vê o mesmo aviso. |
+| Entrar com PIN | Não | **Permitido.** |
+
+Presença é validada no backend (RNF-02): o frontend apenas antecipa o bloqueio para não deixar o cliente tocar num botão que vai falhar. Presença **não** é evento de domínio — é estado de transporte, efêmero, não vai para a outbox nem para `domain_events` (ADR-005).
+
 ## BR-14 Garçom
 - Mesa FREE ⇒ abre sessão diretamente (PDR-001), `opened_by=waiter`.
 - Mesa OCCUPIED/INACTIVE ⇒ acesso direto.

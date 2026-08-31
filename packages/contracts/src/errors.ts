@@ -19,6 +19,7 @@ export const DOMAIN_ERROR_STATUS: Record<string, number> = {
   pin_locked: 423,
   pin_invalid: 401,
   awaiting_confirmation: 409,
+  staff_offline: 409,
   invalid_transition: 409,
   conflict: 409,
   pending_orders: 409,

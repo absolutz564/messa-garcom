@@ -9,17 +9,19 @@ import {
   deriveTableState,
   DomainError,
   generatePin,
+  isBlockedWhileStaffOffline,
   RULES,
   shouldBlockDevice,
   type Actor,
   type RequestResolution,
   type TableState,
 } from '@messa/domain';
-import type { BillState, CustomerRequest, CustomerSession, StaffRequest, StaffSession, StaffTable } from '@messa/contracts';
+import { ptBR, type BillState, type CustomerRequest, type CustomerSession, type StaffRequest, type StaffSession, type StaffTable } from '@messa/contracts';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
 import { PinCipher } from '../../common/pin-cipher';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
+import { StaffPresenceService } from '../events/staff-presence.service';
 
 type SessionRow = typeof schema.sessions.$inferSelect;
 type RequestRow = typeof schema.serviceRequests.$inferSelect;
@@ -36,6 +38,7 @@ export class SessionService {
     @Inject(DB) private readonly db: DbHandle,
     @Inject(APP_CONFIG) config: AppConfig,
     private readonly outbox: OutboxService,
+    private readonly presence: StaffPresenceService,
   ) {
     this.pin = new PinCipher(config.PIN_ENCRYPTION_KEY);
   }
@@ -79,6 +82,11 @@ export class SessionService {
       if (decision.kind === 'reuse_pending') return this.customerRequestDto(pending!);
       if (decision.kind === 'reject') {
         throw new DomainError(decision.code, (MESSAGES[decision.code] ?? decision.code), decision.blockedUntil ? { blockedUntil: decision.blockedUntil.toISOString() } : undefined);
+      }
+      // BR-19: sem equipe conectada a solicitação só expiraria em 10 min. Depois do anti-spam,
+      // para que dispositivo bloqueado continue recebendo a mensagem de bloqueio (BR-04).
+      if (isBlockedWhileStaffOffline('open_session') && !this.presence.isOnline(tenantId)) {
+        throw new DomainError('staff_offline', MESSAGES.staff_offline!);
       }
 
       const [row] = await tx
@@ -611,6 +619,7 @@ const MESSAGES: Record<string, string> = {
   pin_locked: 'Muitas tentativas. Aguarde alguns minutos ou chame um garçom.',
   device_rate_limited: 'Muitas tentativas. Aguarde alguns minutos ou chame um garçom.',
   pin_invalid: 'PIN inválido. Confira com quem está na mesa.',
+  staff_offline: `${ptBR.offline.title}. ${ptBR.offline.body}`,
 };
 
 export { ForbiddenException };

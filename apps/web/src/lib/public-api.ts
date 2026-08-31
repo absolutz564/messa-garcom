@@ -1,6 +1,6 @@
 'use client';
 
-import type { ApiError, CreateOrder, CreateOrderResult, CustomerRequest, CustomerSession, Order, SessionConsumption } from '@messa/contracts';
+import type { ApiError, CreateOrder, CreateOrderResult, CustomerRequest, CustomerSession, Order, SessionConsumption, StaffPresence } from '@messa/contracts';
 import { API_URL, ApiRequestError } from './api';
 
 /** Chamadas do cliente anônimo: sem bearer, sempre com cookies. */
@@ -34,7 +34,9 @@ export const publicApi = {
   createOrder: (body: CreateOrder, idempotencyKey: string) => call<CreateOrderResult>('/public/session/orders', { method: 'POST', body: JSON.stringify(body), headers: { 'idempotency-key': idempotencyKey } }),
   consumption: () => call<SessionConsumption>('/public/session/orders'),
   cancelOrder: (id: string) => call<Order>(`/public/session/orders/${id}/cancel`, { method: 'POST' }),
-  tableState: (token: string) => call<{ state: 'free' | 'requested' | 'occupied' | 'inactive' }>(`/public/tables/${token}`),
+  tableState: (token: string) => call<{ state: 'free' | 'requested' | 'occupied' | 'inactive'; staffOnline: boolean }>(`/public/tables/${token}`),
+  /** BR-19 — presença da equipe; barato o bastante para polling. */
+  presence: (token: string) => call<StaffPresence>(`/public/tables/${token}/presence`),
 };
 
 export function isApiError(e: unknown, code?: string): e is ApiRequestError {

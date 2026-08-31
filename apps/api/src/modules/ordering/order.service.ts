@@ -1,10 +1,11 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { schema, type DbHandle, type Tx } from '@messa/db';
-import { decideOrderPlacement, DomainError, RULES, validateOrderLines, type Actor, type CatalogProduct } from '@messa/domain';
-import type { CreateOrder, CreateOrderResult, Order, SessionConsumption, StaffOrder } from '@messa/contracts';
+import { decideOrderPlacement, DomainError, isBlockedWhileStaffOffline, RULES, validateOrderLines, type Actor, type CatalogProduct } from '@messa/domain';
+import { ptBR, type CreateOrder, type CreateOrderResult, type Order, type SessionConsumption, type StaffOrder } from '@messa/contracts';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
+import { StaffPresenceService } from '../events/staff-presence.service';
 
 export type OrderActor =
   | { kind: 'customer'; participantId: string; deviceId: string }
@@ -18,6 +19,7 @@ export class OrderService {
   constructor(
     @Inject(DB) private readonly db: DbHandle,
     private readonly outbox: OutboxService,
+    private readonly presence: StaffPresenceService,
   ) {}
 
   async create(tenantId: string, sessionId: string, actor: OrderActor, input: CreateOrder, idempotencyKey: string): Promise<CreateOrderResult> {
@@ -66,6 +68,11 @@ export class OrderService {
       let requestId: string | null = null;
 
       if (placement.kind === 'await_confirmation') {
+        // BR-19: sem equipe conectada a solicitação expira em 10 min e leva o pedido junto
+        // (BR-10). Recusa antes de gravar qualquer coisa.
+        if (isBlockedWhileStaffOffline('resume_session') && !this.presence.isOnline(tenantId)) {
+          throw new DomainError('staff_offline', `${ptBR.offline.title}. ${ptBR.offline.body}`);
+        }
         // BR-09: uma solicitação pendente por (mesa, dispositivo); enquanto existe, não aceita novo pedido.
         const dev = actor as Extract<OrderActor, { kind: 'customer' }>;
         const [pending] = await tx

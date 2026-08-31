@@ -63,6 +63,12 @@ export const ptBR = {
     notesPlaceholder: 'Observação (ex.: sem cebola)',
     rejectedItems: 'Alguns itens não estão mais disponíveis e foram removidos: {items}',
   },
+  /** BR-19 — equipe do restaurante sem conexão. */
+  offline: {
+    title: 'Não há ninguém da equipe conectado no momento',
+    body: 'Chame um garçom para fazer seu pedido — ele registra para você.',
+    warn: 'Não há ninguém da equipe conectado no momento. Seu pedido fica registrado, mas pode demorar a ser visto — se precisar, chame um garçom.',
+  },
   staff: {
     request: {
       title: '{table} — Solicitação de atendimento',
@@ -95,6 +101,13 @@ export const ptBR = {
     area: {
       close: { kitchen: 'Encerrar cozinha', bar: 'Encerrar bar' },
       open: { kitchen: 'Reabrir cozinha', bar: 'Reabrir bar' },
+    },
+    /** BR-19 — painel sem conexão com a API. */
+    offline: {
+      title: 'Sem conexão com o Messa',
+      body: 'Os dados na tela são de {time} e podem estar desatualizados. Solicitações e pedidos novos não aparecem até a conexão voltar.',
+      hint: 'Enquanto isso, abra o painel no celular pelo 4G: messa-garcom.com.br/staff',
+      retry: 'Tentar agora',
     },
     table: {
       state: {

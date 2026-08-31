@@ -8,7 +8,7 @@ import { schema, type DbHandle } from '@messa/db';
 import { AppModule } from '../src/app.module';
 import { DomainErrorFilter } from '../src/common/filters/domain-error.filter';
 import { DB } from '../src/modules/db/db.module';
-import { createPlatformAdmin } from './helpers';
+import { createPlatformAdmin, markStaffOnline } from './helpers';
 
 const run = Date.now().toString(36);
 const PASSWORD = 'password123';
@@ -51,7 +51,8 @@ describe('bill request (e2e)', () => {
     const passwordHash = await hash(PASSWORD);
     const login = async (email: string) => (await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password: PASSWORD } })).json().accessToken as string;
     const pf = await createPlatformAdmin(app, db, `pfb-${run}@test.local`, PASSWORD);
-    await app.inject({ method: 'POST', url: '/platform/tenants', headers: { authorization: `Bearer ${pf}` }, payload: { name: 'Bill', slug: `bill-${run}`, adminEmail: `bill-${run}@test.local`, adminName: 'Admin', adminPassword: PASSWORD } });
+    const t = await app.inject({ method: 'POST', url: '/platform/tenants', headers: { authorization: `Bearer ${pf}` }, payload: { name: 'Bill', slug: `bill-${run}`, adminEmail: `bill-${run}@test.local`, adminName: 'Admin', adminPassword: PASSWORD } });
+    markStaffOnline(app, t.json().id); // BR-19: e2e não abre socket; declara o painel aberto.
     admin = await login(`bill-${run}@test.local`);
     for (const role of ['operator', 'waiter'] as const) {
       await staff(admin, 'POST', '/admin/members/invite', { name: role, email: `${role}-b-${run}@test.local`, role });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ptBR, type ServiceArea, type SessionConsumption, type StaffOrder, type StaffRequest, type StaffSession, type StaffTable } from '@messa/contracts';
-import { api, getSession } from '@/lib/api';
+import { api, ApiRequestError, getSession } from '@/lib/api';
 import { errorMessage } from '@/lib/use-api';
 import { money } from '@/lib/format';
 import { useRealtime } from '@/lib/realtime';
@@ -48,6 +48,8 @@ function StaffPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [sound, setSound] = useState(true);
   const [notif, setNotif] = useState<string>('default');
+  // BR-19: dado velho não pode parecer dado fresco. `failures` conta ciclos de 5 s seguidos.
+  const [sync, setSync] = useState<{ lastOkAt: number | null; failures: number }>({ lastOkAt: null, failures: 0 });
   const seen = useRef<{ requests: Set<string>; orders: Set<string>; bills: Set<string>; primed: boolean }>({ requests: new Set(), orders: new Set(), bills: new Set(), primed: false });
 
   useEffect(() => {
@@ -95,8 +97,12 @@ function StaffPanel() {
         }
       }
       st.primed = true;
+      setSync({ lastOkAt: Date.now(), failures: 0 });
     } catch (e) {
-      setError(errorMessage(e));
+      // Falha de rede não vira texto de erro: quem comunica isso é o banner de conexão,
+      // que também marca a idade dos dados na tela.
+      setSync((s) => ({ ...s, failures: s.failures + 1 }));
+      if (e instanceof ApiRequestError) setError(e.message);
     }
   }, [isOperator]);
 
@@ -108,10 +114,28 @@ function StaffPanel() {
 
   useRealtime(() => void reload(), { staff: true });
 
+  // 3 ciclos de 5 s: um blip de rede não vira alarme, mas ~15 s de silêncio vira (BR-19).
+  const offline = sync.failures >= 3;
+
+  // A queda precisa ser audível — o caixa costuma estar de costas para a tela.
+  useEffect(() => {
+    if (!offline) return;
+    void chime('offline');
+    notify('Messa — sem conexão', ptBR.staff.offline.title, 'offline');
+    const id = window.setInterval(() => void chime('offline'), 30_000);
+    return () => window.clearInterval(id);
+  }, [offline]);
+
   // Campainha repetida enquanto houver solicitação pendente + título da aba (caixa de costas para a tela).
   useEffect(() => {
     const pending = requests.length;
     const base = 'Messa · Equipe';
+    if (offline) {
+      document.title = `⚠️ ${ptBR.staff.offline.title}`;
+      return () => {
+        document.title = base;
+      };
+    }
     document.title = pending > 0 ? `(${pending}) Solicitação de atendimento` : base;
     if (pending === 0) return;
     const id = window.setInterval(() => void chime('request'), 10_000);
@@ -119,7 +143,7 @@ function StaffPanel() {
       window.clearInterval(id);
       document.title = base;
     };
-  }, [requests.length]);
+  }, [requests.length, offline]);
 
   async function run(key: string, fn: () => Promise<unknown>) {
     setBusy(key);
@@ -137,6 +161,8 @@ function StaffPanel() {
   const selectedTable = tables.find((t) => t.id === selected) ?? null;
   const submitted = orders.filter((o) => o.status === 'submitted');
   const pendingConfirmation = orders.filter((o) => o.status === 'pending_confirmation');
+  // Sem conexão o conteúdo é um retrato do passado; esmaecer evita lê-lo como atual.
+  const stale = offline ? 'opacity-40 grayscale' : '';
 
   return (
     <>
@@ -183,10 +209,11 @@ function StaffPanel() {
       >
         Mesas
       </PageTitle>
+      {offline && <OfflineBanner lastOkAt={sync.lastOkAt} onRetry={() => void reload()} />}
       <ErrorText>{error}</ErrorText>
 
       {isOperator && requests.length > 0 && (
-        <div className="mb-6 space-y-3">
+        <div className={`mb-6 space-y-3 ${stale}`}>
           {requests.map((r) => (
             <RequestCard key={r.id} request={r} pendingOrder={pendingConfirmation.find((o) => o.sessionId === r.liveSession?.id) ?? null} busy={busy === r.id} onApprove={(resolution) => run(r.id, () => api(`/staff/requests/${r.id}/approve`, { method: 'POST', body: { resolution } }))} onReject={() => run(r.id, () => api(`/staff/requests/${r.id}/reject`, { method: 'POST' }))} />
           ))}
@@ -194,7 +221,7 @@ function StaffPanel() {
       )}
 
       {tables.some((t) => t.session?.bill.requestedAt) && (
-        <div className="mb-6 space-y-3">
+        <div className={`mb-6 space-y-3 ${stale}`}>
           {tables
             .filter((t) => t.session?.bill.requestedAt)
             .map((t) => (
@@ -214,7 +241,7 @@ function StaffPanel() {
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-[1fr_360px]">
+      <div className={`grid gap-6 md:grid-cols-[1fr_360px] ${stale}`}>
         <div className="space-y-6">
           {isOperator && (
             <section>
@@ -273,6 +300,28 @@ function StaffPanel() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * BR-19 — o painel não pode falhar em silêncio: quem está no caixa costuma estar de costas
+ * para a tela, e uma lista congelada é indistinguível de uma lista vazia.
+ */
+function OfflineBanner({ lastOkAt, onRetry }: { lastOkAt: number | null; onRetry: () => void }) {
+  const time = lastOkAt ? new Date(lastOkAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'antes de a tela carregar';
+  return (
+    <div className="mb-4 rounded-xl border-2 border-red-400 bg-red-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-red-800">⚠️ {ptBR.staff.offline.title}</p>
+          <p className="mt-1 text-sm text-red-700">{ptBR.staff.offline.body.replace('{time}', time)}</p>
+          <p className="mt-1 text-sm font-medium text-red-800">{ptBR.staff.offline.hint}</p>
+        </div>
+        <Button variant="danger" onClick={onRetry}>
+          {ptBR.staff.offline.retry}
+        </Button>
+      </div>
+    </div>
   );
 }
 

@@ -38,6 +38,9 @@ Chaves em `packages/contracts/src/i18n/pt-BR.ts`. Textos aqui são a fonte; muda
 | `product.areaClosed.bar` | Bar encerrado |
 | `order.sent` | Pedido enviado! |
 | `order.rejectedItems` | Alguns itens não estão mais disponíveis e foram removidos: {items} |
+| `offline.title` | Não há ninguém da equipe conectado no momento |
+| `offline.body` | Chame um garçom para fazer seu pedido — ele registra para você. |
+| `offline.warn` | Não há ninguém da equipe conectado no momento. Seu pedido fica registrado, mas pode demorar a ser visto — se precisar, chame um garçom. |
 
 ## Operador
 | Chave | Texto |
@@ -59,3 +62,7 @@ Chaves em `packages/contracts/src/i18n/pt-BR.ts`. Textos aqui são a fonte; muda
 | `staff.table.state.occupied` | Em atendimento |
 | `staff.table.state.inactive` | Inativa |
 | `staff.table.state.disabled` | Desativada |
+| `staff.offline.title` | Sem conexão com o Messa |
+| `staff.offline.body` | Os dados na tela são de {time} e podem estar desatualizados. Solicitações e pedidos novos não aparecem até a conexão voltar. |
+| `staff.offline.hint` | Enquanto isso, abra o painel no celular pelo 4G: messa-garcom.com.br/staff |
+| `staff.offline.retry` | Tentar agora |

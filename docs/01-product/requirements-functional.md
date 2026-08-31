@@ -49,6 +49,7 @@ Prioridade: **M** must · **S** should · **F** future.
 | RF-38 | Garçom abre mesa livre sem aprovação (PDR-001) e acessa sessão ativa sem PIN. | M |
 | RF-39 | PIN visível a participantes e staff durante a sessão (PDR-005). | M |
 | RF-3A | Mesa inativa: dispositivo sem PIN pode "solicitar atendimento" (PDR-003). | M |
+| RF-83 | Equipe sem conexão: cliente é impedido de iniciar atendimento/retomar sessão e orientado a chamar um garçom; painel de staff mostra estado de conexão explícito (BR-19, PDR-016). | M |
 
 ## Anti-spam
 | ID | Requisito | Prio |

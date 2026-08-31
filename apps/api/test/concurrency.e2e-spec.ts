@@ -13,7 +13,7 @@ import { DomainErrorFilter } from '../src/common/filters/domain-error.filter';
 import { corsOptions } from '../src/config/cors';
 import { loadConfig } from '../src/config/config';
 import { DB } from '../src/modules/db/db.module';
-import { createPlatformAdmin } from './helpers';
+import { createPlatformAdmin, markStaffOnline } from './helpers';
 
 const run = Date.now().toString(36);
 const PASSWORD = 'password123';
@@ -42,6 +42,7 @@ describe('concurrency & ip rate limit (e2e)', () => {
     const pf = await createPlatformAdmin(app, db, pfEmail, PASSWORD);
     const t = await app.inject({ method: 'POST', url: '/platform/tenants', headers: { authorization: `Bearer ${pf}` }, payload: { name: 'Conc', slug: `conc-${run}`, adminEmail: `conc-${run}@test.local`, adminName: 'Admin', adminPassword: PASSWORD } });
     tenantId = t.json().id;
+    markStaffOnline(app, tenantId); // BR-19: e2e não abre socket; declara o painel aberto.
     admin = await login(`conc-${run}@test.local`);
     const inv = await staff(admin, 'POST', '/admin/members/invite', { name: 'operator', email: `op-c-${run}@test.local`, role: 'operator' });
     if (inv.statusCode !== 201) throw new Error(inv.body);

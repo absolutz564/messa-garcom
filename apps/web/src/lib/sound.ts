@@ -64,7 +64,7 @@ function bell(at: number, base = 1760, gain = 1.0) {
   }
 }
 
-export type Chime = 'request' | 'order' | 'test';
+export type Chime = 'request' | 'order' | 'test' | 'offline';
 
 /** request: 5 toques de sino (~4 s, estilo iFood). order: 2 toques. test: 1 toque. */
 export async function chime(kind: Chime) {
@@ -76,6 +76,10 @@ export async function chime(kind: Chime) {
   } else if (kind === 'order') {
     bell(t, 1760);
     bell(t + 0.6, 2093);
+  } else if (kind === 'offline') {
+    // Grave e descendente: não pode ser confundido com "chegou pedido" (BR-19).
+    bell(t, 440);
+    bell(t + 0.4, 330);
   } else {
     bell(t, 1760);
   }

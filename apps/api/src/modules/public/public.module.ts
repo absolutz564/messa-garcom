@@ -2,12 +2,13 @@ import { Controller, Get, GoneException, Header, Inject, Injectable, Module, Not
 import { and, eq, inArray } from 'drizzle-orm';
 import { schema, type DbHandle } from '@messa/db';
 import { deriveTableState, PUBLIC_TOKEN_REGEX } from '@messa/domain';
-import type { Menu, PublicTable } from '@messa/contracts';
+import type { Menu, PublicTable, StaffPresence } from '@messa/contracts';
 import { Public } from '../../common/decorators';
 import { RateLimit } from '../../common/guards/ip-rate-limit.guard';
 import { DB } from '../db/db.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { CatalogService } from '../catalog/catalog.service';
+import { StaffPresenceService } from '../events/staff-presence.service';
 import { brandingDto } from '../tenant/tenant.module';
 
 export interface ResolvedTable {
@@ -23,6 +24,7 @@ export class PublicTableService {
   constructor(
     @Inject(DB) private readonly db: DbHandle,
     private readonly catalog: CatalogService,
+    private readonly presence: StaffPresenceService,
   ) {}
 
   /** Lookup global do token (antes de existir contexto de tenant). Somente leitura. */
@@ -66,6 +68,7 @@ export class PublicTableService {
         tenant: brandingDto(tenant!),
         table: { id: r.tableId, displayName: r.displayName },
         state: state as PublicTable['state'],
+        staffOnline: this.presence.isOnline(r.tenantId),
       };
     });
   }
@@ -73,6 +76,12 @@ export class PublicTableService {
   async menu(token: string): Promise<Menu> {
     const r = await this.resolve(token);
     return this.db.withTenantTx(r.tenantId, (tx) => this.catalog.menu(tx, r.tenantId));
+  }
+
+  /** BR-19 — só resolve o token e lê a presença em memória; barato o bastante para polling. */
+  async staffPresence(token: string): Promise<StaffPresence> {
+    const r = await this.resolve(token);
+    return { staffOnline: this.presence.isOnline(r.tenantId) };
   }
 }
 
@@ -92,6 +101,18 @@ export class PublicTablesController {
   @Header('Cache-Control', 'no-store')
   menu(@Param('token') token: string) {
     return this.pub.menu(token);
+  }
+
+  /**
+   * BR-19 — polling de presença do cliente (20 s); o socket `presence` é o caminho rápido.
+   * Balde próprio: numa mesma rede Wi-Fi dezenas de celulares dividem o IP, e 3 req/min cada
+   * consumiriam o balde `public` inteiro. A resposta é 1 lookup indexado + leitura em memória.
+   */
+  @RateLimit({ bucket: 'presence', limit: 600, windowMs: 60_000 })
+  @Get(':token/presence')
+  @Header('Cache-Control', 'no-store')
+  presence(@Param('token') token: string) {
+    return this.pub.staffPresence(token);
   }
 }
 

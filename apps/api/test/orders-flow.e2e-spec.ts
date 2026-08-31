@@ -10,7 +10,7 @@ import { schema, type DbHandle } from '@messa/db';
 import { AppModule } from '../src/app.module';
 import { DomainErrorFilter } from '../src/common/filters/domain-error.filter';
 import { DB } from '../src/modules/db/db.module';
-import { createPlatformAdmin } from './helpers';
+import { createPlatformAdmin, markStaffOnline } from './helpers';
 import { SessionService } from '../src/modules/service/session.service';
 
 const run = Date.now().toString(36);
@@ -74,6 +74,7 @@ describe('orders flow (e2e)', () => {
     const pf = await createPlatformAdmin(app, db, platformEmail, PASSWORD);
     const t = await app.inject({ method: 'POST', url: '/platform/tenants', headers: { authorization: `Bearer ${pf}` }, payload: { name: 'Orders', slug: `orders-${run}`, adminEmail: `orders-${run}@test.local`, adminName: 'Admin', adminPassword: PASSWORD } });
     tenantId = t.json().id;
+    markStaffOnline(app, tenantId); // BR-19: e2e não abre socket; declara o painel aberto.
     admin = await login(`orders-${run}@test.local`);
     for (const role of ['operator', 'waiter'] as const) {
       const inv = await staff(admin, 'POST', '/admin/members/invite', { name: role, email: `${role}-o-${run}@test.local`, role });

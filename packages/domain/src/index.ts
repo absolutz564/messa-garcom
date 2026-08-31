@@ -11,3 +11,4 @@ export * from './session';
 export * from './pin';
 export * from './order';
 export * from './tokens';
+export * from './staff-presence';

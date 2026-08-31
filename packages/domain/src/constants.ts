@@ -24,4 +24,6 @@ export const RULES = {
   ORDER_MAX_ITEMS: 100,
   /** Tokens públicos: 12 chars base62 ≈ 71 bits. */
   PUBLIC_TOKEN_LENGTH: 12,
+  /** BR-19: carência entre o último socket de staff cair e o tenant virar offline. */
+  STAFF_PRESENCE_GRACE_MS: 45_000,
 } as const;

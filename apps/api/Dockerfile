@@ -14,6 +14,7 @@ COPY apps/api/package.json apps/api/
 COPY packages/domain/package.json packages/domain/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/db/package.json packages/db/
+COPY packages/origem/package.json packages/origem/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --filter @messa/api...
 
 # ---------- build ----------
@@ -22,8 +23,9 @@ COPY tsconfig.base.json ./
 COPY packages/domain packages/domain
 COPY packages/contracts packages/contracts
 COPY packages/db packages/db
+COPY packages/origem packages/origem
 COPY apps/api apps/api
-RUN pnpm --filter @messa/domain --filter @messa/contracts --filter @messa/db build \
+RUN pnpm --filter @messa/domain --filter @messa/contracts --filter @messa/db --filter @messa/origem build \
  && pnpm --filter @messa/api build \
  && pnpm --filter @messa/api --prod deploy /out
 

@@ -222,7 +222,7 @@ export class BillingService {
       // RF-07/BR-23: o marco guarda o primeiro pagamento com o valor, para o
       // relatório saber quanto o canal devolveu. Renovação não conta de novo —
       // contar dividiria o custo por cliente pela metade a cada ciclo.
-      void this.acquisition.marcar(tenantId, MARCO.pagou, { value: row!.amountCents / 100, currency: 'BRL' });
+      await this.acquisition.marcar(tenantId, MARCO.pagou, { value: row!.amountCents / 100, currency: 'BRL' });
 
       await this.outbox.append(tx, {
         tenantId,

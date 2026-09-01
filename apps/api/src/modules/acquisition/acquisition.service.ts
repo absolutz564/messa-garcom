@@ -53,6 +53,10 @@ export class AcquisitionService {
    * que é quando o marco de fato aconteceu.
    */
   async marcar(tenantId: string, marco: string, extras: { value?: number | null; currency?: string | null } = {}): Promise<void> {
+    // Quem chama deve **esperar**, mesmo sendo best-effort: disparar sem aguardar
+    // deixa o marco chegar depois da resposta HTTP, e o relatório passa a depender
+    // de sorte. O erro já é engolido aqui dentro, então esperar não arrisca nada —
+    // custa poucos milissegundos e torna o comportamento determinístico.
     await this.silencioso(`marcar ${marco}`, () =>
       registrarEvento(this.db.origemExecutor, SUBJECT, tenantId, marco, extras, OPCOES),
     );

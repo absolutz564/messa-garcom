@@ -130,7 +130,7 @@ export class OrderService {
       // momento em que o produto entregou valor. Pedido de garçom não conta: a
       // equipe testando o sistema não é sinal de que a aquisição funcionou.
       if (actor.kind === 'customer' && placement.kind === 'submit') {
-        void this.acquisition.marcar(tenantId, MARCO.ativou);
+        await this.acquisition.marcar(tenantId, MARCO.ativou);
       }
 
       const result: CreateOrderResult = { order: (await this.orders(tx, [order!.id]))[0]!, awaitingConfirmation: placement.kind === 'await_confirmation', requestId };

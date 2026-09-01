@@ -7,6 +7,7 @@ import type { LoginResponse } from '@messa/contracts';
 import { api, setSession } from '@/lib/api';
 import { errorMessage } from '@/lib/use-api';
 import { Button, Card, ErrorText, Field, Input } from '@/components/ui';
+import { OrigemTracker } from '@/components/origem-tracker';
 
 /** RF-06/BR-21 — cadastro self-service. Sucesso já vem logado (ADR-007): vai direto pro /admin. */
 export default function CadastroPage() {
@@ -32,6 +33,7 @@ export default function CadastroPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <OrigemTracker />
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link href="/" className="text-lg font-bold">

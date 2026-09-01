@@ -10,6 +10,7 @@ import { APP_CONFIG, type AppConfig } from '../../config/config';
 import { hashPassword } from '../../common/password';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
+import { AcquisitionService } from '../acquisition/acquisition.service';
 import { PlatformService } from '../platform/platform.service';
 import { EmailService } from './email.service';
 import { TotpService } from './totp.service';
@@ -39,6 +40,7 @@ export class AuthService {
     private readonly totp: TotpService,
     private readonly platform: PlatformService,
     private readonly email: EmailService,
+    private readonly acquisition: AcquisitionService,
   ) {}
 
   /** Mantido por compatibilidade; a implementação vive em `common/password` (sem ciclo). */
@@ -50,13 +52,16 @@ export class AuthService {
    * BR-21/RF-06 — cadastro self-service: cria restaurante + admin e já devolve a sessão.
    * O login logo em seguida é o mesmo do fluxo normal (nada de emissão paralela de token).
    */
-  async signup(input: Signup): Promise<IssuedTokens> {
-    await this.platform.signup({
+  async signup(input: Signup, cookieHeader?: string): Promise<IssuedTokens> {
+    const tenant = await this.platform.signup({
       restaurantName: input.restaurantName,
       adminName: input.adminName,
       email: input.email,
       password: input.password,
     });
+    // RF-07: a origem só existe nos cookies desta requisição — depois do cadastro
+    // não há como recuperá-la. Falha aqui nunca derruba a conta recém-criada.
+    await this.acquisition.registrarCadastro(tenant.id, this.acquisition.origemDoCabecalho(cookieHeader));
     return this.login(input.email, input.password);
   }
 

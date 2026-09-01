@@ -6,6 +6,7 @@ import { ptBR, type CreateOrder, type CreateOrderResult, type Order, type Sessio
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
 import { StaffPresenceService } from '../events/staff-presence.service';
+import { AcquisitionService, MARCO } from '../acquisition/acquisition.service';
 
 export type OrderActor =
   | { kind: 'customer'; participantId: string; deviceId: string }
@@ -20,6 +21,7 @@ export class OrderService {
     @Inject(DB) private readonly db: DbHandle,
     private readonly outbox: OutboxService,
     private readonly presence: StaffPresenceService,
+    private readonly acquisition: AcquisitionService,
   ) {}
 
   async create(tenantId: string, sessionId: string, actor: OrderActor, input: CreateOrder, idempotencyKey: string): Promise<CreateOrderResult> {
@@ -122,6 +124,13 @@ export class OrderService {
         const [table] = await tx.select({ displayName: schema.tables.displayName }).from(schema.tables).where(eq(schema.tables.id, fresh!.tableId));
         await this.outbox.append(tx, { tenantId, type: 'order.pending_confirmation', aggregateType: 'order', aggregateId: order!.id, actor: domainActor, payload: { sessionId, tableId: fresh!.tableId, requestId } });
         await this.outbox.append(tx, { tenantId, type: 'request.created', aggregateType: 'request', aggregateId: requestId, actor: domainActor, payload: { deviceId: dev.deviceId, tableId: fresh!.tableId, tableName: table?.displayName, type: 'resume_session', sessionId, orderId: order!.id } });
+      }
+
+      // RF-07/BR-23: ativação é o primeiro pedido de um cliente de verdade — o
+      // momento em que o produto entregou valor. Pedido de garçom não conta: a
+      // equipe testando o sistema não é sinal de que a aquisição funcionou.
+      if (actor.kind === 'customer' && placement.kind === 'submit') {
+        void this.acquisition.marcar(tenantId, MARCO.ativou);
       }
 
       const result: CreateOrderResult = { order: (await this.orders(tx, [order!.id]))[0]!, awaitingConfirmation: placement.kind === 'await_confirmation', requestId };

@@ -33,16 +33,24 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-semibold">3. Dados de funcionários dos restaurantes</h2>
         <p>Nome, e-mail e senha (armazenada apenas como hash) são tratados para dar acesso ao sistema, pelo tempo em que o vínculo com o restaurante estiver ativo. Dispositivos conectados podem ser desconectados pelo administrador do restaurante a qualquer momento.</p>
 
-        <h2 className="text-lg font-semibold">4. Base legal e finalidade</h2>
+        <h2 className="text-lg font-semibold">4. Visitantes do site (quem pensa em contratar o Messa)</h2>
+        <p>
+          Nas páginas institucionais (a página inicial e a de cadastro) guardamos <strong>dois cookies de origem</strong>, para saber por qual canal ou campanha um restaurante nos conheceu — é como decidimos onde investir divulgação. Eles registram apenas a campanha, a página de entrada (sem o que vem depois do <code>?</code>) e o <strong>domínio</strong> de quem indicou. <strong>Nenhum dado pessoal é guardado neles</strong>, e a validade é de 180 dias (primeiro contato) e 90 dias (contato mais recente).
+        </p>
+        <p>
+          Esses cookies <strong>não existem no cardápio do cliente</strong> (as páginas de QR Code da mesa): quem escaneia a mesa é cliente do restaurante, não um contratante em potencial, e coletar origem ali seria coletar sem finalidade. Se um restaurante se cadastra, a origem passa a ficar associada à conta dele — nunca a uma pessoa física identificada.
+        </p>
+
+        <h2 className="text-lg font-semibold">5. Base legal e finalidade</h2>
         <p>Tratamos os dados com base na execução do serviço solicitado por você (o pedido) e no legítimo interesse de prevenir abusos e manter a segurança, nos termos da LGPD (Lei 13.709/2018).</p>
 
-        <h2 className="text-lg font-semibold">5. Compartilhamento</h2>
+        <h2 className="text-lg font-semibold">6. Compartilhamento</h2>
         <p>Os dados são compartilhados apenas com o restaurante que você está visitando e com os provedores de infraestrutura necessários para operar o serviço (hospedagem e banco de dados). Não vendemos dados.</p>
 
-        <h2 className="text-lg font-semibold">6. Seus direitos</h2>
+        <h2 className="text-lg font-semibold">7. Seus direitos</h2>
         <p>Você pode apagar os cookies do seu navegador a qualquer momento — isso remove qualquer vínculo com este dispositivo. Funcionários podem solicitar a exclusão da sua conta ao administrador do restaurante. Para outras solicitações previstas na LGPD, fale com o restaurante ou conosco pelo e-mail abaixo.</p>
 
-        <h2 className="text-lg font-semibold">7. Contato</h2>
+        <h2 className="text-lg font-semibold">8. Contato</h2>
         <p>
           Encarregado de dados: <a className="underline" href="mailto:privacidade@messa-garcom.com.br">privacidade@messa-garcom.com.br</a>
         </p>

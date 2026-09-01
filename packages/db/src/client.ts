@@ -26,6 +26,15 @@ export interface DbHandle {
   close(): Promise<void>;
   /** Uso exclusivo de testes/migrations. */
   readonly raw: Db;
+  /**
+   * SQL parametrizado cru, para a biblioteca `origem` (RF-07).
+   *
+   * Fora do padrão `withTenantTx`/`withPlatformTx` de propósito, e só para ela:
+   * as tabelas de aquisição são da plataforma, não têm `tenant_id` e não têm RLS
+   * (como `users`). A biblioteca fala SQL para não depender de ORM nenhum, e este
+   * é o encaixe dela. Não use para dado operacional — ali a regra do RLS vale.
+   */
+  readonly origemExecutor: { query(sql: string, params: unknown[]): Promise<Array<Record<string, unknown>>> };
 }
 
 export function createDb(connectionString: string, opts: { max?: number } = {}): DbHandle {
@@ -34,6 +43,20 @@ export function createDb(connectionString: string, opts: { max?: number } = {}):
 
   return {
     raw: db,
+    origemExecutor: {
+      async query(text, params) {
+        // `unsafe` é o nome do postgres.js para "SQL que eu montei", não para
+        // "sem escapar": os valores continuam parametrizados em $1, $2...
+        //
+        // Date vira ISO na mão porque `unsafe` não infere tipo de parâmetro como
+        // as template tags fazem — passar o objeto direto estoura com "The
+        // 'string' argument must be of type string... Received an instance of
+        // Date". O Postgres converte o texto para timestamptz pelo tipo da coluna.
+        const valores = params.map((v) => (v instanceof Date ? v.toISOString() : v));
+        const linhas = await client.unsafe(text, valores as never[]);
+        return linhas as unknown as Array<Record<string, unknown>>;
+      },
+    },
     async withTenantTx(tenantId, fn) {
       return db.transaction(async (tx) => {
         await tx.execute(sql`select set_config('app.tenant_id', ${tenantId}, true)`);

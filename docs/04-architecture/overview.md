@@ -22,6 +22,7 @@ infra/            docker-compose (dev), Dockerfile, fly.toml
 |---|---|---|
 | `platform` | tenants, super admin | — |
 | `billing` | assinatura do tenant, cobrança Pix, job de renovação (BR-20) | platform |
+| `acquisition` | origem do tenant, marcos do funil, gasto de mídia (BR-23) | platform |
 | `identity` | users, memberships, auth de staff, StaffDevice | platform |
 | `catalog` | categorias, produtos, áreas de serviço, upload de imagens | platform |
 | `tables` | mesas, tokens, QR | platform |

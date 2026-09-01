@@ -15,6 +15,7 @@ import type { BillingStatus, PixCharge } from '@messa/contracts';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
 import { PixProviderFactory } from './pix-provider';
+import { AcquisitionService, MARCO } from '../acquisition/acquisition.service';
 
 type TenantRow = typeof schema.tenants.$inferSelect;
 type ChargeRow = typeof schema.pixCharges.$inferSelect;
@@ -28,6 +29,7 @@ export class BillingService {
     @Inject(DB) private readonly db: DbHandle,
     private readonly outbox: OutboxService,
     private readonly providers: PixProviderFactory,
+    private readonly acquisition: AcquisitionService,
   ) {}
 
   // =====================================================================
@@ -217,6 +219,11 @@ export class BillingService {
       const tenant = await this.loadTenant(tx, tenantId);
       const subscriptionEndsAt = nextBillingCycleEnd(row!.plan as BillingPlan, tenant.subscriptionEndsAt, new Date());
       await tx.update(schema.tenants).set({ billingStatus: 'active', subscriptionEndsAt }).where(eq(schema.tenants.id, tenantId));
+      // RF-07/BR-23: o marco guarda o primeiro pagamento com o valor, para o
+      // relatório saber quanto o canal devolveu. Renovação não conta de novo —
+      // contar dividiria o custo por cliente pela metade a cada ciclo.
+      void this.acquisition.marcar(tenantId, MARCO.pagou, { value: row!.amountCents / 100, currency: 'BRL' });
+
       await this.outbox.append(tx, {
         tenantId,
         type: 'billing.paid',

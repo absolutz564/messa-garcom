@@ -10,6 +10,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -461,6 +462,118 @@ export const pixCharges = pgTable(
     check('pix_charges_plan_chk', sql`${t.plan} IN ('monthly','semiannual','annual')`),
     check('pix_charges_status_chk', sql`${t.status} IN ('pending','paid','expired')`),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Aquisição (biblioteca `origem`) — RF-07/BR-23
+//
+// Tabelas da plataforma, não do tenant: respondem "de onde veio este restaurante
+// e quanto custou trazê-lo", uma pergunta que só o Super Admin faz. Por isso não
+// têm `tenant_id` e ficam fora de TENANT_SCOPED_TABLES — como `users`, o acesso é
+// restringido na aplicação (só `/platform`), não por RLS.
+//
+// A forma das colunas é ditada pela biblioteca (ver `prisma/migration.sql` no
+// repositório `origem`); o adaptador SQL fala com elas em snake_case.
+// ---------------------------------------------------------------------------
+
+const textId = () => text('id').primaryKey();
+
+export const origemAtribuicao = pgTable(
+  'origem_atribuicao',
+  {
+    id: textId(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: text('subject_id').notNull(),
+
+    /** Quem apresentou o produto. Nunca sobrescrito depois do cadastro. */
+    firstChannel: text('first_channel').notNull(),
+    firstSource: text('first_source'),
+    firstMedium: text('first_medium'),
+    firstCampaign: text('first_campaign'),
+    firstContent: text('first_content'),
+    firstTerm: text('first_term'),
+    firstClickId: text('first_click_id'),
+    firstClickIdKind: text('first_click_id_kind'),
+    firstLandingPath: text('first_landing_path'),
+    firstReferrerHost: text('first_referrer_host'),
+    firstAt: ts('first_at'),
+
+    /** O que fez decidir agora. */
+    lastChannel: text('last_channel').notNull(),
+    lastSource: text('last_source'),
+    lastMedium: text('last_medium'),
+    lastCampaign: text('last_campaign'),
+    lastContent: text('last_content'),
+    lastTerm: text('last_term'),
+    lastClickId: text('last_click_id'),
+    lastClickIdKind: text('last_click_id_kind'),
+    lastLandingPath: text('last_landing_path'),
+    lastReferrerHost: text('last_referrer_host'),
+    lastAt: ts('last_at'),
+
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('origem_atribuicao_subject_uq').on(t.subjectType, t.subjectId),
+    index('origem_atribuicao_last_channel_idx').on(t.lastChannel, t.createdAt),
+    index('origem_atribuicao_first_channel_idx').on(t.firstChannel, t.createdAt),
+  ],
+);
+
+/** Marco alcançado: cadastrou, ativou, pagou. */
+export const origemEvento = pgTable(
+  'origem_evento',
+  {
+    id: textId(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: text('subject_id').notNull(),
+    name: text('name').notNull(),
+    value: numeric('value', { precision: 12, scale: 2 }),
+    currency: text('currency'),
+    occurredAt: ts('occurred_at').notNull().defaultNow(),
+  },
+  (t) => [
+    /** Um marco por sujeito: pagar de novo não pode contar como cliente novo — esse erro divide o custo por cliente pela metade. */
+    uniqueIndex('origem_evento_subject_name_uq').on(t.subjectType, t.subjectId, t.name),
+    index('origem_evento_name_idx').on(t.name, t.occurredAt),
+  ],
+);
+
+/** Gasto de mídia, lançado à mão pelo Super Admin. */
+export const origemGasto = pgTable(
+  'origem_gasto',
+  {
+    id: textId(),
+    channel: text('channel').notNull(),
+    source: text('source').notNull(),
+    campaign: text('campaign'),
+    content: text('content'),
+    periodStart: ts('period_start').notNull(),
+    periodEnd: ts('period_end').notNull(),
+    amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+    currency: text('currency').notNull().default('BRL'),
+    note: text('note'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('origem_gasto_periodo_idx').on(t.periodStart, t.periodEnd),
+    index('origem_gasto_canal_idx').on(t.channel, t.source),
+  ],
+);
+
+/** Link de anúncio já criado, para lançar o gasto escolhendo de uma lista em vez de digitar de memória. */
+export const origemLink = pgTable(
+  'origem_link',
+  {
+    id: textId(),
+    channel: text('channel').notNull(),
+    source: text('source').notNull(),
+    campaign: text('campaign').notNull(),
+    content: text('content'),
+    url: text('url').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('origem_link_source_campaign_idx').on(t.source, t.campaign)],
 );
 
 // ---------------------------------------------------------------------------

@@ -118,3 +118,16 @@ Toda transição grava `DomainEvent` com `actor` (`{kind: customer|staff|system,
 - `POST /auth/reset-password` troca a senha e **revoga todos os `staff_devices` do usuário**: se o pedido veio de quem perdeu o acesso, quem estivesse logado indevidamente cai junto.
 - Rate limit por IP: 5 pedidos / 15 min para solicitar, 10 / 15 min para consumir.
 - Um pedido novo invalida o anterior (o hash é sobrescrito). Token usado é apagado.
+
+## BR-23 Aquisição (RF-07) — PDR-020
+- O sujeito atribuído é o **restaurante** (`subjectType='tenant'`), não a pessoa: quem a Messa adquire é a casa, e é a assinatura dela que paga a mídia.
+- A origem é capturada no navegador (cookie de primeira parte, sem httpOnly) e gravada **no cadastro** — depois não há como recuperá-la, o parâmetro da URL se perde na primeira navegação. Sem cookie, o cadastro conta como `direct`: origem desconhecida é resposta legítima, não falha.
+- Guarda **dois toques**: primeiro (quem apresentou o produto) e último (o que fez decidir). O relatório credita um ou outro conforme o modelo escolhido; olhar só o último corta verba de quem enche o topo do funil.
+- Marcos, um por tenant (repetir não conta de novo — contar dividiria o custo por cliente a cada ciclo):
+  - `cadastrou` — criação da conta pelo cadastro self-service (BR-21);
+  - `ativou` — **primeiro pedido de um cliente de verdade**. Pedido de garçom não conta: a equipe testando o sistema não é sinal de que a aquisição funcionou;
+  - `pagou` — primeira cobrança confirmada (BR-20), com o valor, para o relatório saber quanto o canal devolveu.
+- Toda escrita de aquisição é **best-effort**: falha vira log, nunca exceção. Ela acontece no meio de cadastro, pedido e confirmação de pagamento — nenhum desses pode cair porque a tabela de marketing estava indisponível.
+- Gasto de mídia é lançado à mão pelo Super Admin, com a mesma origem/campanha do link do anúncio. Os links são gerados e guardados em `/platform/aquisicao` justamente para o nome não ser digitado de memória semanas depois.
+- LGPD: o cookie guarda campanha, caminho de entrada **sem query string** e apenas o **host** de quem indicou — nada de identificador pessoal. A captura não roda no cardápio do cliente (`/t/[token]`): ali quem escaneia é o cliente do restaurante, não um restaurante em potencial.
+- Tabelas da plataforma, sem `tenant_id` e sem RLS (como `users`): o acesso é restrito a `/platform` na aplicação.

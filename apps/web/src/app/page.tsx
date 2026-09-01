@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { OrigemTracker } from '@/components/origem-tracker';
 
 /**
  * Landing pública (RF-06/PDR-018). Server Component sem estado: quem já tem conta
@@ -43,6 +44,7 @@ const FAQ = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-neutral-900">
+      <OrigemTracker />
       <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <span className="text-lg font-bold">Messa</span>

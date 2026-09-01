@@ -8,6 +8,7 @@ import { HealthModule } from './modules/health/health.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AcquisitionModule } from './modules/acquisition/acquisition.module';
 import { TablesModule } from './modules/tables/tables.module';
 import { EventsModule } from './modules/events/events.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
@@ -46,6 +47,7 @@ import { RequestContextModule } from './common/request-context.module';
     IdentityModule,
     PlatformModule,
     BillingModule,
+    AcquisitionModule,
     TablesModule,
     CatalogModule,
     TenantModule,

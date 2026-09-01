@@ -44,6 +44,9 @@ importers:
       '@messa/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@messa/origem':
+        specifier: workspace:*
+        version: link:../../packages/origem
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.2.3(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -147,6 +150,9 @@ importers:
       '@messa/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@messa/origem':
+        specifier: workspace:*
+        version: link:../../packages/origem
       next:
         specifier: ^15.1.0
         version: 15.5.24(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -231,6 +237,12 @@ importers:
       vitest:
         specifier: ^3.0.0
         version: 3.2.7(@types/node@22.20.1)(jiti@1.21.7)(terser@5.51.2)(tsx@4.23.12)
+
+  packages/origem:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
 
 packages:
 

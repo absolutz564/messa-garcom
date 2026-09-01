@@ -11,3 +11,6 @@ coverage/
 Thumbs.db
 infra/.pgdata/
 uploads/
+
+# Lixo de diagnóstico do CI baixado à mão
+e2e-log.zip

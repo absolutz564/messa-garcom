@@ -45,8 +45,8 @@ export class AuthController {
   @RateLimit({ bucket: 'signup', limit: 10, windowMs: 60 * 60_000 })
   @Post('signup')
   @HttpCode(201)
-  async signup(@Body(new ZodPipe(SignupSchema)) body: Signup, @Res({ passthrough: true }) res: FastifyReply) {
-    const issued = await this.auth.signup(body);
+  async signup(@Body(new ZodPipe(SignupSchema)) body: Signup, @Req() req: FastifyRequest, @Res({ passthrough: true }) res: FastifyReply) {
+    const issued = await this.auth.signup(body, req.headers.cookie);
     this.setRefreshCookie(res, issued);
     return issued.response;
   }

@@ -1,0 +1,16 @@
+{
+  "name": "@messa/origem",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "sync": "node ../../scripts/sync-origem.mjs",
+    "sync:check": "node ../../scripts/sync-origem.mjs --conferir"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

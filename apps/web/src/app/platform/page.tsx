@@ -37,7 +37,7 @@ export default function PlatformPage() {
   }
 
   return (
-    <StaffShell title="Messa · Plataforma" platform nav={[{ href: '/platform', label: 'Restaurantes' }]}>
+    <StaffShell title="Messa · Plataforma" platform nav={[{ href: '/platform', label: 'Restaurantes' }, { href: '/platform/aquisicao', label: 'Aquisição' }]}>
       <PageTitle>Restaurantes</PageTitle>
       <div className="grid gap-6 md:grid-cols-[1fr_360px]">
         <Card>

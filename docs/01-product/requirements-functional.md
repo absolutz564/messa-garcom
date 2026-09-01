@@ -11,6 +11,7 @@ Prioridade: **M** must · **S** should · **F** future.
 | RF-04 | Super Admin vê métricas globais. | S |
 | RF-05 | Planos/assinaturas/cobrança do tenant (entregue 2026-08-30, BR-20/PDR-017): trial 14 dias, planos Mensal/Semestral/Anual, Pix via Mercado Pago com confirmação automática. Pagamento da conta *pelo cliente* (RF-69) segue F. | M |
 | RF-06 | Cadastro self-service (entregue 2026-08-30, BR-21/PDR-018): landing page pública com "Testar grátis"; dono do restaurante cria a própria conta sem depender do Super Admin. Login automático após o cadastro; trial de 14 dias (RF-05) começa imediatamente. | M |
+| RF-07 | Aquisição (entregue 2026-08-31, BR-23/PDR-020): de onde veio cada restaurante (canal, campanha, criativo), funil cadastrou → ativou → pagou, lançamento de gasto de mídia e custo por cliente em `/platform/aquisicao`. | M |
 
 ## Configuração do restaurante
 | ID | Requisito | Prio |

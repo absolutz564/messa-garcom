@@ -53,6 +53,13 @@ export function StaffShell({
     }
     if (platform && !session.isPlatformAdmin) router.replace('/staff/login');
     if (platform && session.isPlatformAdmin && !session.mfa) router.replace('/staff/2fa');
+    // /staff e /admin só existem dentro de um restaurante. Super Admin sem membership
+    // chegava aqui por link antigo e via a tela quebrada com "Forbidden" em cada
+    // chamada, em vez de ser levado para onde ele de fato trabalha.
+    if (!platform && !session.activeTenant) {
+      router.replace(session.isPlatformAdmin ? '/platform' : '/staff/login');
+      return;
+    }
     const role = session.activeTenant?.role;
     if (require && (!role || (role !== 'admin' && !require.includes(role)))) router.replace('/staff');
   }, [session, platform, require, router, pathname]);

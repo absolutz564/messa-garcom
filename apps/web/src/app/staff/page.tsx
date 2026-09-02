@@ -99,10 +99,12 @@ function StaffPanel() {
       st.primed = true;
       setSync({ lastOkAt: Date.now(), failures: 0 });
     } catch (e) {
-      // Falha de rede não vira texto de erro: quem comunica isso é o banner de conexão,
-      // que também marca a idade dos dados na tela.
-      setSync((s) => ({ ...s, failures: s.failures + 1 }));
+      // Um erro HTTP (403, 404, 500) prova que a conexão está de pé: o servidor
+      // respondeu. Contá-lo como queda faria o painel dizer "sem conexão" para quem
+      // está perfeitamente conectado — e o caixa iria procurar problema no roteador.
+      // Só falha de rede (fetch que nem completa) conta para o banner do BR-19.
       if (e instanceof ApiRequestError) setError(e.message);
+      else setSync((s) => ({ ...s, failures: s.failures + 1 }));
     }
   }, [isOperator]);
 

@@ -31,7 +31,12 @@ export class RolesGuard implements CanActivate {
     const roles = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES, targets);
     // Sem @Roles: qualquer staff autenticado (inclui platform admin sem tenant — /auth/me, /auth/2fa/*).
     if (!roles || roles.length === 0) return true;
-    if (!p.tenantId || !p.role) throw new ForbiddenException({ code: 'no_active_tenant' });
+    // Sem `message`, o Nest devolve o nome da classe ("Forbidden Exception") e o
+    // usuário lê isso na tela. Quem cai aqui é quase sempre um Super Admin num link
+    // de /staff — a mensagem precisa dizer o que houve.
+    if (!p.tenantId || !p.role) {
+      throw new ForbiddenException({ code: 'no_active_tenant', message: 'Esta tela pertence a um restaurante, e sua conta não está em nenhum. Use o painel da plataforma.' });
+    }
     if (p.role === 'admin') return true;
     if (!roles.includes(p.role)) throw new ForbiddenException({ code: 'forbidden' });
     return true;

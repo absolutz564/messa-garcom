@@ -14,6 +14,7 @@
 | [07-api](07-api/) | Catálogo de eventos, WebSocket, OpenAPI (gerado) |
 | [08-operations](08-operations/) | Ambientes, runbook, observabilidade |
 | [09-ux](09-ux/) | Inventário de telas, textos oficiais |
+| [10-comercial](10-comercial/) | Briefing do produto para divulgação (fatos para colar em IA) |
 
 ## Como ler
 1. Comece por `00-vision/product-vision.md`.

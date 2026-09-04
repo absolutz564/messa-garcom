@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { AcquisitionController } from './acquisition.controller';
+import { AcquisitionController, ShortLinkController } from './acquisition.controller';
 import { AcquisitionService } from './acquisition.service';
 
 /**
@@ -8,5 +8,5 @@ import { AcquisitionService } from './acquisition.service';
  * importar o módulo só espalharia acoplamento sem ganho nenhum.
  */
 @Global()
-@Module({ controllers: [AcquisitionController], providers: [AcquisitionService], exports: [AcquisitionService] })
+@Module({ controllers: [AcquisitionController, ShortLinkController], providers: [AcquisitionService], exports: [AcquisitionService] })
 export class AcquisitionModule {}

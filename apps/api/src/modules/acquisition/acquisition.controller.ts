@@ -1,13 +1,16 @@
-import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Param, Post, Query } from '@nestjs/common';
 import {
   AcquisitionQuerySchema,
   AdSpendSchema,
   CreateCampaignLinkSchema,
   type AcquisitionQuery,
   type AdSpend,
+  type CampaignLinkDto,
   type CreateCampaignLink,
+  type ShortLinkTarget,
 } from '@messa/contracts';
-import { PlatformAdmin } from '../../common/decorators';
+import { Public, PlatformAdmin } from '../../common/decorators';
+import { RateLimit } from '../../common/guards/ip-rate-limit.guard';
 import { ZodPipe } from '../../common/zod.pipe';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
 import { Inject } from '@nestjs/common';
@@ -43,7 +46,7 @@ export class AcquisitionController {
   }
 
   @Get('links')
-  async links() {
+  async links(): Promise<CampaignLinkDto[]> {
     const links = await this.acquisition.listarLinks();
     return links.map((l) => ({ ...l, createdAt: l.createdAt.toISOString() }));
   }
@@ -58,16 +61,47 @@ export class AcquisitionController {
    */
   @Post('links')
   @HttpCode(201)
-  async createLink(@Body(new ZodPipe(CreateCampaignLinkSchema)) body: CreateCampaignLink) {
+  async createLink(@Body(new ZodPipe(CreateCampaignLinkSchema)) body: CreateCampaignLink): Promise<CampaignLinkDto> {
     const url = new URL(this.config.WEB_PUBLIC_URL);
     url.searchParams.set('utm_source', body.source);
     url.searchParams.set('utm_medium', MEDIUM_POR_CANAL[body.channel]);
     url.searchParams.set('utm_campaign', body.campaign);
     if (body.content) url.searchParams.set('utm_content', body.content);
 
-    const link = { channel: body.channel, source: body.source, campaign: body.campaign, content: body.content ?? null, url: url.toString() };
-    await this.acquisition.registrarLink(link);
-    return link;
+    const salvo = await this.acquisition.registrarLink({
+      channel: body.channel,
+      source: body.source,
+      campaign: body.campaign,
+      content: body.content ?? null,
+      url: url.toString(),
+    });
+    return { ...salvo, createdAt: salvo.createdAt.toISOString() };
+  }
+}
+
+/**
+ * Resolve o código curto de `/i/<slug>` (BR-23).
+ *
+ * Pública porque quem chama é a rota do site antes de qualquer sessão existir —
+ * a pessoa acabou de clicar num anúncio. Não expõe nada: devolve só a URL de
+ * destino, que é a mesma que a pessoa veria na barra de endereço um instante
+ * depois. Código desconhecido devolve `null`, e não 404, porque quem decide o
+ * que fazer com isso é o site (ele leva à landing — erro de digitação no
+ * anúncio custa a atribuição, não deve custar também a visita).
+ */
+@Public()
+@RateLimit({ bucket: 'public', limit: 120, windowMs: 60_000 })
+@Controller('public/links')
+export class ShortLinkController {
+  constructor(private readonly acquisition: AcquisitionService) {}
+
+  @Get(':slug')
+  @Header('Cache-Control', 'no-store')
+  async resolve(@Param('slug') slug: string): Promise<ShortLinkTarget> {
+    // Corta antes de ir ao banco: o código nasce de `campaignShortCode`, que
+    // nunca passa de 24 caracteres. Qualquer coisa maior é varredura.
+    if (!slug || slug.length > 64) return { url: null };
+    return { url: await this.acquisition.destinoDoCodigo(slug) };
   }
 }
 

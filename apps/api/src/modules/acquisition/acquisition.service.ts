@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
-import type { DbHandle } from '@messa/db';
+import { schema, type DbHandle } from '@messa/db';
+import { campaignShortCode } from '@messa/domain';
 import { lerOrigem } from '@messa/origem';
-import { gravarAtribuicao, lancarGasto, listarLinks, registrarEvento, registrarLink, relatorio } from '@messa/origem/dist/adapters/sql';
-import type { Attribution, CampaignLink, Channel, LinhaRelatorio, OpcoesRelatorio } from '@messa/origem';
+import { gravarAtribuicao, lancarGasto, registrarEvento, relatorio } from '@messa/origem/dist/adapters/sql';
+import type { Attribution, Channel, LinhaRelatorio, OpcoesRelatorio } from '@messa/origem';
 import { DB } from '../db/db.module';
 
 /** O sujeito atribuído no Messa é o restaurante, não a pessoa. */
@@ -81,12 +83,87 @@ export class AcquisitionService {
     return lancarGasto(this.db.origemExecutor, gasto, OPCOES);
   }
 
-  registrarLink(link: { channel: Channel; source: string; campaign: string; content: string | null; url: string }): Promise<void> {
-    return registrarLink(this.db.origemExecutor, link, OPCOES);
+  // ------------------------------------------------------------ Links de anúncio
+  //
+  // Estes três não usam o adaptador da biblioteca `origem` (que os tem) porque
+  // ela não conhece o código curto: o `CampaignLink` de lá não tem `slug`, e
+  // adicioná-lo obrigaria a mudar a biblioteca e o Terap-IA Kids junto. Aqui as
+  // tabelas são do Drizzle e já estão tipadas — o SQL cru não traria nada.
+
+  /**
+   * Guarda o link do anúncio e devolve o código curto de `/i/<slug>` (BR-23).
+   *
+   * Repetir a mesma origem/campanha/peça devolve o link já existente em vez de
+   * criar outro — é o que mantém a lista curta e o nome da campanha estável
+   * entre a criação do anúncio e o lançamento do gasto, semanas depois. Link
+   * antigo que ainda não tem código ganha um aqui: é assim que os criados antes
+   * do encurtador passam a ter link curto, sem migração de dados.
+   */
+  async registrarLink(link: NovoLink): Promise<LinkSalvo> {
+    const existente = await this.buscarLink(link);
+    if (existente?.slug) return paraLinkSalvo(existente);
+
+    // Uma transação por tentativa: violar índice único aborta a transação
+    // inteira no Postgres, então não dá para tentar o próximo código dentro dela.
+    for (let tentativa = 0; tentativa < 20; tentativa++) {
+      const slug = campaignShortCode(link.source, tentativa);
+      try {
+        const [linha] = await this.db.withPlatformTx((tx) =>
+          existente
+            ? tx.update(schema.origemLink).set({ slug }).where(eq(schema.origemLink.id, existente.id)).returning()
+            : tx.insert(schema.origemLink).values({ id: uuidv7(), ...link, slug }).returning(),
+        );
+        if (linha) return paraLinkSalvo(linha);
+      } catch {
+        // Código já usado por outro link (ou duas abas gerando ao mesmo tempo).
+        // O índice único é quem decide; tenta o próximo.
+      }
+    }
+
+    // Vinte códigos tomados para a mesma origem é improvável, mas não pode
+    // custar o link: sem código, o longo continua correto e rastreado.
+    this.log.warn(`aquisição: sem código curto livre para "${link.source}" — link segue só com a URL longa`);
+    if (existente) return paraLinkSalvo(existente);
+    const [criado] = await this.db.withPlatformTx((tx) =>
+      tx.insert(schema.origemLink).values({ id: uuidv7(), ...link, slug: null }).returning(),
+    );
+    return paraLinkSalvo(criado!);
   }
 
-  listarLinks(): Promise<CampaignLink[]> {
-    return listarLinks(this.db.origemExecutor, OPCOES);
+  async listarLinks(): Promise<LinkSalvo[]> {
+    const linhas = await this.db.withPlatformTx((tx) =>
+      tx.select().from(schema.origemLink).orderBy(desc(schema.origemLink.createdAt)).limit(200),
+    );
+    return linhas.map(paraLinkSalvo);
+  }
+
+  /**
+   * Destino de um código curto. `null` quando não existe — quem chama decide o
+   * que fazer com isso (a rota `/i/<slug>` leva à landing, nunca a um 404).
+   */
+  async destinoDoCodigo(slug: string): Promise<string | null> {
+    const [linha] = await this.db.withPlatformTx((tx) =>
+      tx.select({ url: schema.origemLink.url }).from(schema.origemLink).where(eq(schema.origemLink.slug, slug)).limit(1),
+    );
+    return linha?.url ?? null;
+  }
+
+  /** O link é identificado por origem + campanha + peça (mesmo índice único do banco). */
+  private async buscarLink(link: NovoLink): Promise<typeof schema.origemLink.$inferSelect | undefined> {
+    const [linha] = await this.db.withPlatformTx((tx) =>
+      tx
+        .select()
+        .from(schema.origemLink)
+        .where(
+          and(
+            eq(schema.origemLink.source, link.source),
+            eq(schema.origemLink.campaign, link.campaign),
+            link.content === null ? isNull(schema.origemLink.content) : eq(schema.origemLink.content, link.content),
+          ),
+        )
+        .limit(1),
+    );
+    return linha;
   }
 
   /**
@@ -103,4 +180,29 @@ export class AcquisitionService {
       this.log.warn(`aquisição: falha ao ${oque} — ${(err as Error).message}`);
     }
   }
+}
+
+export interface NovoLink {
+  channel: Channel;
+  source: string;
+  campaign: string;
+  content: string | null;
+  url: string;
+}
+
+export interface LinkSalvo extends NovoLink {
+  slug: string | null;
+  createdAt: Date;
+}
+
+function paraLinkSalvo(linha: typeof schema.origemLink.$inferSelect): LinkSalvo {
+  return {
+    channel: linha.channel as Channel,
+    source: linha.source,
+    campaign: linha.campaign,
+    content: linha.content,
+    url: linha.url,
+    slug: linha.slug,
+    createdAt: linha.createdAt,
+  };
 }

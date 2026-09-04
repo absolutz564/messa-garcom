@@ -29,6 +29,7 @@ export default function AquisicaoPage() {
 
   const [gasto, setGasto] = useState({ channel: 'paid_social' as AcquisitionChannel, source: '', campaign: '', amount: '', periodStart: hoje(), periodEnd: hoje() });
   const [novoLink, setNovoLink] = useState({ channel: 'paid_social' as AcquisitionChannel, source: '', campaign: '', content: '' });
+  const [ultimo, setUltimo] = useState<CampaignLinkDto | null>(null);
 
   async function run(fn: () => Promise<unknown>) {
     setError(null);
@@ -61,7 +62,8 @@ export default function AquisicaoPage() {
   async function criarLink(e: FormEvent) {
     e.preventDefault();
     await run(async () => {
-      await api('/platform/acquisition/links', { method: 'POST', body: { ...novoLink, content: novoLink.content || null } });
+      const salvo = await api<CampaignLinkDto>('/platform/acquisition/links', { method: 'POST', body: { ...novoLink, content: novoLink.content || null } });
+      setUltimo(salvo);
       setNovoLink({ ...novoLink, source: '', campaign: '', content: '' });
       await links.reload();
     });
@@ -192,7 +194,10 @@ export default function AquisicaoPage() {
 
         <Card>
           <h2 className="mb-1 font-semibold">Gerar link de anúncio</h2>
-          <p className="mb-3 text-xs text-neutral-500">Sempre use estes links nos anúncios: é o que faz o cadastro chegar com a origem marcada.</p>
+          <p className="mb-3 text-xs text-neutral-500">
+            Sempre use estes links nos anúncios: é o que faz o cadastro chegar com a origem marcada. O código curto (<span className="font-mono">/i/…</span>) leva ao link
+            longo sem mostrar a campanha para quem clica.
+          </p>
           <form onSubmit={criarLink} className="space-y-3">
             <Field label="Canal">
               <Select value={novoLink.channel} onChange={(e) => setNovoLink({ ...novoLink, channel: e.target.value as AcquisitionChannel })}>
@@ -217,6 +222,23 @@ export default function AquisicaoPage() {
             </Button>
           </form>
 
+          {ultimo && (
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Link para divulgar</p>
+              <p className="mt-1 break-all font-mono text-sm font-semibold">{curto(ultimo) ?? ultimo.url}</p>
+              <p className="mt-1 text-xs text-neutral-600">
+                {curto(ultimo)
+                  ? 'Compartilhe este, não o longo: ele não anuncia que é campanha na barra de endereço, e continua creditando a origem.'
+                  : 'Sem código curto desta vez — o link longo funciona igual e continua marcado.'}
+              </p>
+              <p className="mt-2 text-xs text-neutral-600">
+                Ao lançar o gasto, use <strong className="font-mono">{ultimo.source}</strong> como origem e <strong className="font-mono">{ultimo.campaign}</strong> como
+                campanha. Nome diferente separa a verba dos clientes que ela trouxe.
+              </p>
+              <CopiarBotao texto={curto(ultimo) ?? ultimo.url} />
+            </div>
+          )}
+
           <ul className="mt-4 space-y-2">
             {links.data?.map((l) => (
               <li key={l.url} className="rounded-lg bg-neutral-50 p-2 text-xs">
@@ -224,7 +246,12 @@ export default function AquisicaoPage() {
                   {l.source} · {l.campaign}
                   {l.content && ` · ${l.content}`}
                 </p>
-                <p className="mt-1 break-all select-all text-neutral-600">{l.url}</p>
+                {curto(l) ? (
+                  <p className="mt-1 break-all font-mono font-semibold select-all">{curto(l)}</p>
+                ) : (
+                  <p className="mt-1 text-neutral-400">Sem código curto — gere o link de novo com os mesmos dados para criar um.</p>
+                )}
+                <p className="mt-1 break-all select-all text-neutral-500">{l.url}</p>
               </li>
             ))}
             {links.data?.length === 0 && <li className="py-2 text-xs text-neutral-400">Nenhum link gerado ainda.</li>}
@@ -232,5 +259,35 @@ export default function AquisicaoPage() {
         </Card>
       </div>
     </StaffShell>
+  );
+}
+
+/**
+ * Endereço curto do link, montado no navegador a partir do domínio em que a
+ * página está aberta — não há env var nova, e em preview da Vercel o link
+ * copiado aponta para o próprio preview em vez de para produção.
+ */
+function curto(link: CampaignLinkDto): string | null {
+  if (!link.slug) return null;
+  // Guarda de SSR: a lista só existe depois do fetch no cliente, mas um render
+  // no servidor com `window` indefinido derrubaria a página inteira.
+  const origem = typeof window === 'undefined' ? '' : window.location.origin;
+  return `${origem}/i/${link.slug}`;
+}
+
+function CopiarBotao({ texto }: { texto: string }) {
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <Button
+      type="button"
+      className="mt-3"
+      onClick={async () => {
+        await navigator.clipboard.writeText(texto);
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 2000);
+      }}
+    >
+      {copiado ? 'Copiado' : 'Copiar link'}
+    </Button>
   );
 }

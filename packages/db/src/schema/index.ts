@@ -571,9 +571,20 @@ export const origemLink = pgTable(
     campaign: text('campaign').notNull(),
     content: text('content'),
     url: text('url').notNull(),
+    /**
+     * BR-23 — código do link curto servido em `/i/<slug>`. Anulável porque o
+     * encurtamento é conveniência de aparência, não parte da atribuição: sem
+     * código, o link longo continua correto e rastreado.
+     */
+    slug: text('slug'),
     createdAt: createdAt(),
   },
-  (t) => [index('origem_link_source_campaign_idx').on(t.source, t.campaign)],
+  (t) => [
+    index('origem_link_source_campaign_idx').on(t.source, t.campaign),
+    // Único entre os não-nulos (o Postgres não compara NULL com NULL em índice
+    // único): dois links com o mesmo código creditariam a campanha de um ao outro.
+    uniqueIndex('origem_link_slug_uq').on(t.slug),
+  ],
 );
 
 // ---------------------------------------------------------------------------

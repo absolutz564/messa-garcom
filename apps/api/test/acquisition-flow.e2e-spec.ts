@@ -166,6 +166,46 @@ describe('acquisition (e2e)', () => {
     expect(lista.filter((l) => l.campaign === campanha)).toHaveLength(1);
   });
 
+  it('link curto: código nasce da origem e o mesmo link devolve sempre o mesmo', async () => {
+    const source = `parceiro-${run}`;
+    const body = { channel: 'referral', source, campaign: `indicacao-${run}` };
+
+    const criado = await platform('POST', '/platform/acquisition/links', body);
+    expect(criado.statusCode).toBe(201);
+    expect(criado.json().slug).toBe(source);
+
+    // Gerar de novo não pode criar outro código: o link compartilhado ontem
+    // continuaria válido, mas a atribuição passaria a ter duas entradas.
+    const denovo = await platform('POST', '/platform/acquisition/links', body);
+    expect(denovo.json().slug).toBe(source);
+  });
+
+  it('link curto: mesma origem em campanha diferente ganha código próprio', async () => {
+    const source = `parceiro-${run}`;
+    const outro = await platform('POST', '/platform/acquisition/links', { channel: 'referral', source, campaign: `feira-${run}` });
+    expect(outro.statusCode).toBe(201);
+    // Nunca reaproveitar o código de outro link: creditaria uma campanha à outra.
+    expect(outro.json().slug).toBe(`${source}-2`);
+  });
+
+  it('/public/links resolve o código para a URL marcada, sem autenticação', async () => {
+    const criado = (
+      await platform('POST', '/platform/acquisition/links', { channel: 'paid_social', source: `feed-${run}`, campaign: `abertura-${run}` })
+    ).json() as { slug: string; url: string };
+
+    const res = await app.inject({ method: 'GET', url: `/public/links/${criado.slug}` });
+    expect(res.statusCode).toBe(200);
+    // A marcação continua no destino: é ela que o cookie de origem lê na chegada.
+    expect(res.json().url).toBe(criado.url);
+    expect(res.json().url).toContain(`utm_campaign=abertura-${run}`);
+  });
+
+  it('código desconhecido devolve url nula — o site leva à landing, não a um 404', async () => {
+    const res = await app.inject({ method: 'GET', url: '/public/links/nunca-existiu' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().url).toBeNull();
+  });
+
   it('aquisição é só do Super Admin: admin de restaurante recebe 403', async () => {
     const signup = await app.inject({
       method: 'POST',

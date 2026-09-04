@@ -55,9 +55,18 @@ export const CampaignLinkSchema = z.object({
   campaign: z.string(),
   content: z.string().nullable(),
   url: z.string(),
+  /**
+   * Código do link curto (`/i/<slug>`). `null` quando o encurtamento não foi
+   * possível — a tela mostra o link longo, que funciona igual.
+   */
+  slug: z.string().nullable(),
   createdAt: z.string(),
 });
 export type CampaignLinkDto = z.infer<typeof CampaignLinkSchema>;
+
+/** Destino de um código curto. `url` nula = código desconhecido (BR-23). */
+export const ShortLinkTargetSchema = z.object({ url: z.string().nullable() });
+export type ShortLinkTarget = z.infer<typeof ShortLinkTargetSchema>;
 
 export const CreateCampaignLinkSchema = z.object({
   channel: ChannelSchema,

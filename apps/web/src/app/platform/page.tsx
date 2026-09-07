@@ -10,6 +10,36 @@ import { Badge, Button, Card, ErrorText, Field, Input, PageTitle } from '@/compo
 const BILLING_LABEL: Record<Tenant['billing']['phase'], string> = { trial: 'Em teste', active: 'Ativa', past_due: 'Pendente', blocked: 'Bloqueada' };
 const BILLING_TONE: Record<Tenant['billing']['phase'], 'neutral' | 'green' | 'red' | 'amber'> = { trial: 'neutral', active: 'green', past_due: 'amber', blocked: 'red' };
 
+const CANAL_LABEL: Record<NonNullable<Tenant['origin']>['channel'], string> = {
+  direct: 'Direto',
+  organic_search: 'Busca',
+  organic_social: 'Social',
+  paid_search: 'Busca paga',
+  paid_social: 'Social pago',
+  referral: 'Indicação',
+  email: 'E-mail',
+  other: 'Outro',
+};
+
+/**
+ * De onde veio o restaurante (BR-23).
+ *
+ * Três estados diferentes, e confundi-los esconde justamente o que interessa:
+ * sem atribuição nenhuma (conta anterior ao controle de aquisição), "Direto"
+ * (chegou sem campanha) e a campanha que o trouxe.
+ */
+function Origem({ origin }: { origin: Tenant['origin'] }) {
+  if (!origin) return <span className="text-neutral-400">—</span>;
+  const detalhe = [origin.source, origin.campaign, origin.content].filter(Boolean).join(' · ');
+  return (
+    <div className="leading-tight">
+      <span>{CANAL_LABEL[origin.channel]}</span>
+      {detalhe && <div className="text-xs text-neutral-500">{detalhe}</div>}
+      {!detalhe && origin.referrerHost && <div className="text-xs text-neutral-500">via {origin.referrerHost}</div>}
+    </div>
+  );
+}
+
 export default function PlatformPage() {
   const tenants = useApi<Tenant[]>('/platform/tenants');
   const [form, setForm] = useState({ name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '' });
@@ -40,13 +70,14 @@ export default function PlatformPage() {
     <StaffShell title="Messa · Plataforma" platform nav={[{ href: '/platform', label: 'Restaurantes' }, { href: '/platform/aquisicao', label: 'Aquisição' }]}>
       <PageTitle>Restaurantes</PageTitle>
       <div className="grid gap-6 md:grid-cols-[1fr_360px]">
-        <Card>
+        <Card className="overflow-x-auto">
           {tenants.error && <ErrorText>{tenants.error}</ErrorText>}
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="text-left text-xs uppercase text-neutral-500">
               <tr>
                 <th className="py-2">Nome</th>
-                <th>Slug</th>
+                <th>Responsável</th>
+                <th>Origem</th>
                 <th>Status</th>
                 <th>Assinatura</th>
                 <th>Vence em</th>
@@ -56,8 +87,25 @@ export default function PlatformPage() {
             <tbody>
               {tenants.data?.map((t) => (
                 <tr key={t.id} className="border-t border-neutral-100">
-                  <td className="py-2 font-medium">{t.name}</td>
-                  <td className="text-neutral-500">{t.slug}</td>
+                  <td className="py-2">
+                    <div className="font-medium">{t.name}</div>
+                    <div className="text-xs text-neutral-500">
+                      {t.slug} · desde {new Date(t.createdAt).toLocaleDateString('pt-BR')}
+                    </div>
+                  </td>
+                  <td className="leading-tight">
+                    {t.admin ? (
+                      <>
+                        <div>{t.admin.name}</div>
+                        <div className="text-xs text-neutral-500 select-all">{t.admin.email}</div>
+                      </>
+                    ) : (
+                      <span className="text-neutral-400">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <Origem origin={t.origin} />
+                  </td>
                   <td>
                     <Badge tone={t.status === 'active' ? 'green' : 'red'}>{t.status === 'active' ? 'Ativo' : 'Bloqueado'}</Badge>
                   </td>
@@ -93,7 +141,7 @@ export default function PlatformPage() {
               ))}
               {tenants.data?.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-neutral-500">
+                  <td colSpan={7} className="py-6 text-center text-neutral-500">
                     Nenhum restaurante ainda.
                   </td>
                 </tr>

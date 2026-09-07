@@ -150,6 +150,9 @@ importers:
       '@messa/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@messa/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@messa/origem':
         specifier: workspace:*
         version: link:../../packages/origem

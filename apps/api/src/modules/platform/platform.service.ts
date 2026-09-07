@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { schema, type DbHandle, type Tx } from '@messa/db';
 import { cryptoRandomInt, evaluateTenantBilling, RULES, slugify, slugWithSuffix } from '@messa/domain';
 import type { CreateTenant, Tenant } from '@messa/contracts';
@@ -15,10 +15,58 @@ export class PlatformService {
     private readonly outbox: OutboxService,
   ) {}
 
+  /**
+   * Lista para o Super Admin, já com a origem e o dono de cada restaurante.
+   *
+   * As duas juntas respondem "quem é esse restaurante que apareceu na lista?" —
+   * pergunta que antes exigia consultar o banco à mão. `LEFT JOIN` nas duas
+   * pontas de propósito: restaurante criado antes da aquisição existir não tem
+   * atribuição, e conta criada pelo Super Admin pode não ter admin próprio.
+   */
   async list(): Promise<Tenant[]> {
     return this.db.withPlatformTx(async (tx) => {
-      const rows = await tx.select().from(schema.tenants).orderBy(desc(schema.tenants.createdAt));
-      return rows.map(toDto);
+      const rows = await tx
+        .select({
+          tenant: schema.tenants,
+          origem: {
+            channel: schema.origemAtribuicao.lastChannel,
+            source: schema.origemAtribuicao.lastSource,
+            campaign: schema.origemAtribuicao.lastCampaign,
+            content: schema.origemAtribuicao.lastContent,
+            referrerHost: schema.origemAtribuicao.lastReferrerHost,
+          },
+          admin: { name: schema.users.name, email: schema.users.email },
+        })
+        .from(schema.tenants)
+        .leftJoin(
+          schema.origemAtribuicao,
+          // `subject_id` é `text` e `tenants.id` é `uuid`: a biblioteca `origem`
+          // não conhece o tipo de id de quem a usa, então guarda o sujeito como
+          // texto. Sem o cast o Postgres recusa a comparação inteira.
+          and(eq(schema.origemAtribuicao.subjectType, 'tenant'), sql`${schema.origemAtribuicao.subjectId} = ${schema.tenants.id}::text`),
+        )
+        // O admin mais antigo do restaurante é quem abriu a conta: no cadastro
+        // self-service ele é o único, e num convite posterior a ordem preserva
+        // quem começou.
+        .leftJoin(
+          schema.memberships,
+          and(eq(schema.memberships.tenantId, schema.tenants.id), eq(schema.memberships.role, 'admin')),
+        )
+        .leftJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+        // `invitedAt` é quando o vínculo nasceu (tem `defaultNow`), inclusive no
+        // cadastro self-service, onde ninguém foi convidado por ninguém.
+        .orderBy(desc(schema.tenants.createdAt), asc(schema.memberships.invitedAt));
+
+      // O join de membership multiplica linhas quando há mais de um admin; o
+      // primeiro de cada tenant já vem na ordem certa.
+      const vistos = new Set<string>();
+      const saida: Tenant[] = [];
+      for (const r of rows) {
+        if (vistos.has(r.tenant.id)) continue;
+        vistos.add(r.tenant.id);
+        saida.push(toDto(r.tenant, r.origem, r.admin));
+      }
+      return saida;
     });
   }
 
@@ -140,7 +188,11 @@ export class PlatformService {
   }
 }
 
-function toDto(t: typeof schema.tenants.$inferSelect): Tenant {
+/** Linha do join: nula inteira quando não há atribuição/admin para o tenant. */
+type OrigemDaLinha = { channel: string | null; source: string | null; campaign: string | null; content: string | null; referrerHost: string | null } | null;
+type AdminDaLinha = { name: string | null; email: string | null } | null;
+
+function toDto(t: typeof schema.tenants.$inferSelect, origem: OrigemDaLinha = null, admin: AdminDaLinha = null): Tenant {
   const billing = evaluateTenantBilling({
     billingStatus: t.billingStatus as 'trial' | 'active',
     trialEndsAt: t.trialEndsAt,
@@ -160,5 +212,15 @@ function toDto(t: typeof schema.tenants.$inferSelect): Tenant {
       plan: t.billingPlan as Tenant['billing']['plan'],
       expiresAt: (t.billingStatus === 'trial' ? t.trialEndsAt : t.subscriptionEndsAt)?.toISOString() ?? null,
     },
+    origin: origem?.channel
+      ? {
+          channel: origem.channel as NonNullable<Tenant['origin']>['channel'],
+          source: origem.source,
+          campaign: origem.campaign,
+          content: origem.content,
+          referrerHost: origem.referrerHost,
+        }
+      : null,
+    admin: admin?.email ? { name: admin.name ?? '', email: admin.email } : null,
   };
 }

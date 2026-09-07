@@ -121,4 +121,19 @@ export interface CaptureOptions {
   lastTouchDays?: number;
   /** Prefixo dos cookies. Padrão "og". */
   cookiePrefix?: string;
+  /**
+   * Domínio do cookie, quando o site e a API que lê a origem estão em hosts
+   * diferentes — `site.com.br` gravando, `api.site.com.br` lendo.
+   *
+   * Sem isto o cookie é *host-only*: o navegador o envia **apenas** para o host
+   * exato que o gravou, e a requisição de cadastro que sai para o subdomínio da
+   * API chega sem origem nenhuma. O cadastro é gravado como "direto" e a
+   * campanha que o trouxe se perde em silêncio — não há erro em lugar nenhum.
+   *
+   * Informe o domínio pai compartilhado (`site.com.br`, com ou sem ponto na
+   * frente). Deixe vazio quando site e API são o mesmo host: cookie host-only é
+   * o padrão mais restrito, e alargar o alcance sem precisar é dar a subdomínios
+   * um dado que não é deles.
+   */
+  cookieDomain?: string;
 }

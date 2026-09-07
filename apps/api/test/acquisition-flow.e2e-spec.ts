@@ -206,6 +206,45 @@ describe('acquisition (e2e)', () => {
     expect(res.json().url).toBeNull();
   });
 
+  it('lista de restaurantes mostra a origem e o dono de cada conta', async () => {
+    const email = `dono-lista-${run}@test.local`;
+    const signup = await app.inject({
+      method: 'POST',
+      url: '/auth/signup',
+      payload: { restaurantName: `Bar Lista ${run}`, adminName: 'Dona Maria', email, password: PASSWORD, acceptedPrivacy: true },
+      headers: { cookie: cookiesDeOrigem('instagram', campanha) },
+    });
+    const tenantId = signup.json().activeTenant.tenantId as string;
+
+    const lista = (await platform('GET', '/platform/tenants')).json() as Array<{
+      id: string;
+      origin: { channel: string; source: string | null; campaign: string | null } | null;
+      admin: { name: string; email: string } | null;
+    }>;
+    const linha = lista.find((t) => t.id === tenantId);
+    expect(linha).toBeDefined();
+    // Sem isto, o Super Admin vê um restaurante novo na lista e não tem como
+    // saber se ele veio de um anúncio pago ou apareceu sozinho.
+    expect(linha!.origin).toMatchObject({ channel: 'paid_social', source: 'instagram', campaign: campanha });
+    expect(linha!.admin).toEqual({ name: 'Dona Maria', email });
+  });
+
+  it('restaurante criado pelo Super Admin aparece sem origem, não como "direto"', async () => {
+    const criado = await platform('POST', '/platform/tenants', {
+      name: `Bar Manual ${run}`,
+      slug: `bar-manual-${run}`,
+      adminName: 'Dono Manual',
+      adminEmail: `manual-${run}@test.local`,
+      adminPassword: PASSWORD,
+    });
+    expect(criado.statusCode).toBe(201);
+
+    const lista = (await platform('GET', '/platform/tenants')).json() as Array<{ id: string; origin: unknown }>;
+    // "Sem atribuição" e "veio direto" são coisas diferentes: a primeira é uma
+    // conta que nunca passou pelo funil, a segunda é alguém que chegou sozinho.
+    expect(lista.find((t) => t.id === criado.json().id)!.origin).toBeNull();
+  });
+
   it('aquisição é só do Super Admin: admin de restaurante recebe 403', async () => {
     const signup = await app.inject({
       method: 'POST',

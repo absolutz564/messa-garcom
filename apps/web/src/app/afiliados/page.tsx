@@ -7,6 +7,24 @@ import { Badge, Button, Card, ErrorText, Field, Input } from '@/components/ui';
 
 const dataCurta = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
 
+/**
+ * `fetch` só rejeita quando a requisição **não chegou a acontecer**: rede fora,
+ * DNS, TLS, extensão bloqueando, rede de empresa barrando o subdomínio. O
+ * navegador chama isso de "Failed to fetch" — texto que não diz nada a um
+ * divulgador que só quer conferir os próprios cadastros, e que não distingue
+ * "senha errada" de "não cheguei no servidor".
+ */
+function mensagemDeRede(): string {
+  const host = (() => {
+    try {
+      return new URL(API_URL).host;
+    } catch {
+      return API_URL;
+    }
+  })();
+  return `Não foi possível falar com o servidor (${host}). Abra https://${host}/ready no navegador: se essa página também não abrir, o bloqueio está na sua rede ou no seu navegador — tente outra rede, ou desative bloqueador de anúncios e VPN para este site.`;
+}
+
 const SITUACAO: Record<AffiliateSituation, { rotulo: string; tom: 'neutral' | 'green' | 'red' | 'amber' }> = {
   em_teste: { rotulo: 'Em teste', tom: 'neutral' },
   teste_vencido: { rotulo: 'Teste vencido', tom: 'red' },
@@ -43,7 +61,10 @@ export default function AfiliadosPage() {
       const res = await fetch(`${API_URL}/afiliados/painel`, { credentials: 'include', cache: 'no-store' });
       setBlocos(res.ok ? ((await res.json()) as AffiliateBlock[]) : null);
     } catch {
+      // Falha de rede aqui não pode virar tela de login silenciosa: quem acabou
+      // de entrar com a senha certa acharia que a senha está errada.
       setBlocos(null);
+      setErro(mensagemDeRede());
     } finally {
       setCarregando(false);
     }
@@ -57,24 +78,32 @@ export default function AfiliadosPage() {
     e.preventDefault();
     setEntrando(true);
     setErro(null);
+
+    let res: Response;
     try {
-      const res = await fetch(`${API_URL}/afiliados/entrar`, {
+      res = await fetch(`${API_URL}/afiliados/entrar`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ usuario, senha }),
       });
-      if (!res.ok) {
-        const corpo = (await res.json().catch(() => null)) as { message?: string } | null;
-        throw new Error(corpo?.message ?? 'Não foi possível entrar.');
-      }
-      setSenha('');
-      await carregar();
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Não foi possível entrar.');
-    } finally {
+    } catch {
+      setErro(mensagemDeRede());
       setEntrando(false);
+      return;
     }
+
+    if (!res.ok) {
+      const corpo = (await res.json().catch(() => null)) as { message?: string } | null;
+      setErro(corpo?.message ?? 'Não foi possível entrar.');
+      setEntrando(false);
+      return;
+    }
+
+    setSenha('');
+    setErro(null);
+    await carregar();
+    setEntrando(false);
   }
 
   async function sair() {

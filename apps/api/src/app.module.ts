@@ -9,6 +9,7 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { AcquisitionModule } from './modules/acquisition/acquisition.module';
+import { AffiliatesModule } from './modules/affiliates/affiliates.module';
 import { TablesModule } from './modules/tables/tables.module';
 import { EventsModule } from './modules/events/events.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
@@ -48,6 +49,7 @@ import { RequestContextModule } from './common/request-context.module';
     PlatformModule,
     BillingModule,
     AcquisitionModule,
+    AffiliatesModule,
     TablesModule,
     CatalogModule,
     TenantModule,

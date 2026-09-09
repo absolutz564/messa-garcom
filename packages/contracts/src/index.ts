@@ -8,4 +8,5 @@ export * from './session';
 export * from './order';
 export * from './billing';
 export * from './acquisition';
+export * from './affiliates';
 export { ptBR } from './i18n/pt-BR';

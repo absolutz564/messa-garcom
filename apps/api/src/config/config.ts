@@ -18,6 +18,12 @@ const ConfigSchema = z.object({
   UPLOADS_DIR: z.string().optional(),
   /** BR-20 — sem token, a cobrança automática fica indisponível (o admin vê aviso, nada quebra). */
   MERCADO_PAGO_ACCESS_TOKEN: z.string().optional(),
+  /**
+   * BR-24 — hash argon2 da senha única da área de afiliados. **Sem esta variável a
+   * área não existe**: as rotas respondem 404, e não "senha incorreta" — quem não
+   * deve conhecê-la não recebe confirmação de que ela está ali.
+   */
+  AFILIADOS_SENHA_HASH: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;

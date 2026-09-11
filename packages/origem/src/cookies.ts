@@ -15,7 +15,7 @@ import type { Touch, Channel } from "./types";
  * ou remover posição invalida os cookies já gravados nos navegadores dos
  * visitantes, e o dado perdido é justamente o de quem veio antes da mudança.
  */
-const CANAIS: Channel[] = [
+export const CANAIS: readonly Channel[] = [
   "direct",
   "organic_search",
   "organic_social",

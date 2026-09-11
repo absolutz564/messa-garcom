@@ -3,7 +3,7 @@
 // testes de lá, e sincronize com: node scripts/sync-origem.mjs
 import { paraColunas } from "../read";
 import { montarRelatorio } from "../report";
-import type { Attribution, Channel, CampaignLink } from "../types";
+import type { Attribution, Channel, CampaignLink, Visita, VisitasContadas } from "../types";
 import type { LinhaRelatorio, OpcoesRelatorio, SujeitoAtribuido } from "../report";
 
 /**
@@ -32,7 +32,7 @@ export interface OpcoesSql {
    * Nomes das tabelas. O padrão é o do `prisma/migration.sql` que acompanha a
    * biblioteca; projetos em snake_case costumam querer `origem_atribuicao` etc.
    */
-  tabelas?: { atribuicao?: string; evento?: string; gasto?: string; link?: string };
+  tabelas?: { atribuicao?: string; evento?: string; gasto?: string; link?: string; visita?: string };
   /**
    * Convenção das colunas. `"camel"` usa `"firstChannel"` entre aspas, como o
    * migration da biblioteca; `"snake"` converte para `first_channel`.
@@ -50,6 +50,7 @@ const PADRAO = {
   evento: "OrigemEvento",
   gasto: "OrigemGasto",
   link: "OrigemLink",
+  visita: "OrigemVisita",
 } as const;
 
 /**
@@ -72,7 +73,7 @@ function paraSnake(nome: string): string {
 }
 
 class Dialeto {
-  readonly tabelas: { atribuicao: string; evento: string; gasto: string; link: string };
+  readonly tabelas: { atribuicao: string; evento: string; gasto: string; link: string; visita: string };
   private readonly snake: boolean;
   readonly novoId: () => string;
 
@@ -340,5 +341,86 @@ export async function listarLinks(db: Executor, opcoes: OpcoesSql = {}): Promise
     content: texto(chave(l, "content")),
     url: String(chave(l, "url")),
     createdAt: new Date(String(chave(l, "createdAt"))),
+  }));
+}
+
+// ------------------------------------------------------------------ Visitas
+
+/**
+ * Grava uma visita já decidida por `visitaParaContar`.
+ *
+ * Só aceita os campos de `Visita`. A rota que recebe a visita do navegador é
+ * pública por necessidade — quem clica num link ainda não tem conta —, e é
+ * gravável por qualquer um; o que limita o estrago é o tamanho dos campos e o
+ * teto por IP do app. Esta função não guarda nada além da marcação, para que
+ * IP e user agent não entrem na tabela por descuido de quem monta o corpo.
+ */
+export async function registrarVisita(db: Executor, visita: Visita, opcoes: OpcoesSql = {}): Promise<void> {
+  const d = new Dialeto(opcoes);
+  await db.query(
+    `INSERT INTO ${d.tabela("visita")}
+       (${d.col("id")}, ${d.col("channel")}, ${d.col("source")}, ${d.col("medium")},
+        ${d.col("campaign")}, ${d.col("content")}, ${d.col("landingPath")})
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [d.novoId(), visita.channel, visita.source, visita.medium, visita.campaign, visita.content, visita.landingPath]
+  );
+}
+
+export interface FiltroDeVisitas {
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  /** Inclusivo. */
+  desde?: Date;
+  /** Exclusivo, para janelas encadeadas não contarem o limite duas vezes. */
+  ate?: Date;
+}
+
+/**
+ * Visitas agrupadas pela marcação. Uma linha por combinação de canal, origem,
+ * meio, campanha e peça — a mesma grão do relatório, para o painel cruzar com
+ * cadastros sem adivinhar chave.
+ *
+ * Conta no banco (`GROUP BY`) e não em memória: visita é a tabela que mais
+ * cresce — uma linha por visitante novo, não por cliente.
+ */
+export async function contarVisitas(
+  db: Executor,
+  filtro: FiltroDeVisitas = {},
+  opcoes: OpcoesSql = {}
+): Promise<VisitasContadas[]> {
+  const d = new Dialeto(opcoes);
+  const condicoes: string[] = [];
+  const params: unknown[] = [];
+  const onde = (coluna: string, operador: string, valor: unknown) => {
+    params.push(valor);
+    condicoes.push(`${d.col(coluna)} ${operador} $${params.length}`);
+  };
+  if (filtro.source !== undefined) onde("source", "=", filtro.source);
+  if (filtro.medium !== undefined) onde("medium", "=", filtro.medium);
+  if (filtro.campaign !== undefined) onde("campaign", "=", filtro.campaign);
+  if (filtro.desde) onde("createdAt", ">=", filtro.desde);
+  if (filtro.ate) onde("createdAt", "<", filtro.ate);
+
+  const agrupamento = ["channel", "source", "medium", "campaign", "content"].map((c) => d.col(c)).join(", ");
+  const linhas = await db.query(
+    `SELECT ${agrupamento}, COUNT(*)::int AS ${d.col("visitas")}
+       FROM ${d.tabela("visita")}
+       ${condicoes.length ? `WHERE ${condicoes.join(" AND ")}` : ""}
+      GROUP BY ${agrupamento}
+      ORDER BY ${d.col("visitas")} DESC`,
+    params
+  );
+
+  const chave = (linha: Record<string, unknown>, nome: string) =>
+    linha[nome] !== undefined ? linha[nome] : linha[paraSnake(nome)];
+
+  return linhas.map((l) => ({
+    channel: String(chave(l, "channel")) as Channel,
+    source: texto(chave(l, "source")),
+    medium: texto(chave(l, "medium")),
+    campaign: texto(chave(l, "campaign")),
+    content: texto(chave(l, "content")),
+    visitas: numero(chave(l, "visitas")),
   }));
 }

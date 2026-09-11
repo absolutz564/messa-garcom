@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import { hash } from '@node-rs/argon2';
+import { eq } from 'drizzle-orm';
 import { classify, nomesDeCookie, serializarToque } from '@messa/origem';
 import { schema, type DbHandle } from '@messa/db';
 import { AppModule } from '../src/app.module';
@@ -30,6 +31,10 @@ describe('afiliados (e2e)', () => {
     const nomes = nomesDeCookie('og');
     return `${nomes.primeiro}=${serializarToque(toque)}; ${nomes.ultimo}=${serializarToque(toque)}`;
   }
+
+  /** O que o rastreador envia no primeiro toque de um visitante novo. */
+  const visitar = (source: string, extras: Record<string, unknown> = {}) =>
+    app.inject({ method: 'POST', url: '/public/origem/visita', payload: { channel: 'referral', source, medium: 'referral', campaign: 'indicacao', landingPath: '/?utm_source=x', ...extras } });
 
   async function cadastrar(nome: string, email: string, cookie?: string) {
     const res = await app.inject({
@@ -84,6 +89,36 @@ describe('afiliados (e2e)', () => {
     cookieDeSessao = bruto!.split(';')[0]!;
   });
 
+  it('visita: responde 204 sempre, e só grava o que passa pela lista fechada', async () => {
+    // Três visitantes novos pelo link do afiliado.
+    for (let i = 0; i < 3; i++) expect((await visitar(CODIGO)).statusCode).toBe(204);
+    // Visita direta não é clique em link de ninguém; corpo ruim não vira erro.
+    expect((await visitar(CODIGO, { channel: 'direct' })).statusCode).toBe(204);
+    expect((await visitar(CODIGO, { channel: 'hacker' })).statusCode).toBe(204);
+    // Corpo JSON sem nada aproveitável também é 204: devolver erro ensinaria um
+    // robô a calibrar a tentativa seguinte. (JSON malformado o Fastify rejeita
+    // antes de chegar aqui, com 400 — isso é do parser, não desta rota.)
+    expect((await app.inject({ method: 'POST', url: '/public/origem/visita', payload: {} })).statusCode).toBe(204);
+    // Dado pessoal no corpo não tem por onde entrar.
+    expect((await visitar(CODIGO, { ip: '203.0.113.9', userAgent: 'Mozilla' })).statusCode).toBe(204);
+
+    const visitas = await db.withPlatformTx((tx) => tx.select().from(schema.origemVisita).where(eq(schema.origemVisita.source, CODIGO)));
+    expect(visitas).toHaveLength(4); // 3 + a que veio com ip/userAgent, sem eles
+    expect(visitas.every((v) => v.channel === 'referral')).toBe(true);
+    expect(visitas.every((v) => v.landingPath === '/')).toBe(true); // sem query string
+    expect(JSON.stringify(visitas)).not.toContain('203.0.113.9');
+  });
+
+  it('código com cliques e zero cadastros aparece no painel — é o caso que a contagem existe para mostrar', async () => {
+    const soCliques = `curioso-${run}`;
+    await visitar(soCliques);
+    await visitar(soCliques);
+
+    const res = await app.inject({ method: 'GET', url: '/afiliados/painel', headers: { cookie: cookieDeSessao } });
+    const bloco = (res.json() as Array<{ codigo: string; visitas: number; cadastros: number }>).find((b) => b.codigo === soCliques);
+    expect(bloco).toMatchObject({ visitas: 2, cadastros: 0 });
+  });
+
   it('painel agrupa por código e mostra situação, sem identificar o restaurante', async () => {
     const emTeste = await cadastrar(`Bar Afiliado ${run}`, `afl-teste-${run}@test.local`, cookiesDeAfiliado(CODIGO));
     const pagante = await cadastrar(`Bar Pagante ${run}`, `afl-pago-${run}@test.local`, cookiesDeAfiliado(CODIGO));
@@ -97,10 +132,11 @@ describe('afiliados (e2e)', () => {
     const res = await app.inject({ method: 'GET', url: '/afiliados/painel', headers: { cookie: cookieDeSessao } });
     expect(res.statusCode).toBe(200);
 
-    const bloco = (res.json() as Array<{ codigo: string; cadastros: number; pagantes: number; indicacoes: Array<Record<string, unknown>> }>).find(
+    const bloco = (res.json() as Array<{ codigo: string; visitas: number; cadastros: number; pagantes: number; indicacoes: Array<Record<string, unknown>> }>).find(
       (b) => b.codigo === CODIGO,
     );
     expect(bloco).toBeDefined();
+    expect(bloco!.visitas).toBe(4); // as do teste da rota, sob o mesmo código
     expect(bloco!.cadastros).toBe(2);
     expect(bloco!.pagantes).toBe(1);
 

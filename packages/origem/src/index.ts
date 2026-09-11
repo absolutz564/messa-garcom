@@ -9,6 +9,9 @@ export type {
   AdSpend,
   CaptureOptions,
   CampaignLink,
+  Visita,
+  VisitasContadas,
+  ResultadoDaCaptura,
 } from "./types";
 
 export { classify, deveSubstituirUltimoToque } from "./classify";
@@ -22,6 +25,9 @@ export {
 } from "./cookies";
 
 export { lerOrigem, paraColunas } from "./read";
+
+export { visitaParaContar, visitaDe } from "./visit";
+export type { EntradaDeVisita } from "./visit";
 
 export { montarRelatorio, faltamParaDecidir } from "./report";
 export type { LinhaRelatorio, OpcoesRelatorio, SujeitoAtribuido } from "./report";

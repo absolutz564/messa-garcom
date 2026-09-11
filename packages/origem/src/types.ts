@@ -109,6 +109,50 @@ export interface CampaignLink {
   createdAt: Date;
 }
 
+/**
+ * Visita que chegou por link marcado, contada uma vez por visitante novo.
+ *
+ * Existe para separar "ninguém clicou" de "clicaram e não se cadastraram" —
+ * sem isso, zero cadastros é um número mudo: pode ser distribuição fraca ou
+ * página que não convence, e são problemas opostos.
+ *
+ * Só a marcação e o caminho de entrada. **Nada de IP, user agent ou
+ * identificador de pessoa**: o que se quer contar é "quantos vieram por este
+ * link", não quem são.
+ */
+export interface Visita {
+  channel: Channel;
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  content: string | null;
+  /** Caminho de entrada sem query string — a marcação já está nas colunas. */
+  landingPath: string | null;
+}
+
+/** Visitas agrupadas pela marcação, como `contarVisitas` devolve. */
+export interface VisitasContadas {
+  channel: Channel;
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  content: string | null;
+  visitas: number;
+}
+
+/** O que `capturar()` devolve. */
+export interface ResultadoDaCaptura {
+  primeiro: Touch;
+  ultimo: Touch;
+  /**
+   * Verdadeiro só na primeira vez que este navegador é visto — quando o cookie
+   * do primeiro toque acabou de ser gravado. É o que separa visitante novo de
+   * quem está navegando ou voltando: sem isso, cada página aberta viraria um
+   * clique a mais na contagem.
+   */
+  novo: boolean;
+}
+
 export interface CaptureOptions {
   /**
    * Hosts que contam como "eu mesmo". Visita vinda deles não é indicação e não

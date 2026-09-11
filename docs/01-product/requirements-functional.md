@@ -11,7 +11,7 @@ Prioridade: **M** must · **S** should · **F** future.
 | RF-04 | Super Admin vê métricas globais. | S |
 | RF-05 | Planos/assinaturas/cobrança do tenant (entregue 2026-08-30, BR-20/PDR-017): trial 14 dias, planos Mensal/Semestral/Anual, Pix via Mercado Pago com confirmação automática. Pagamento da conta *pelo cliente* (RF-69) segue F. | M |
 | RF-06 | Cadastro self-service (entregue 2026-08-30, BR-21/PDR-018): landing page pública com "Testar grátis"; dono do restaurante cria a própria conta sem depender do Super Admin. Login automático após o cadastro; trial de 14 dias (RF-05) começa imediatamente. | M |
-| RF-07 | Aquisição (entregue 2026-08-31, BR-23/PDR-020): de onde veio cada restaurante (canal, campanha, criativo), funil cadastrou → ativou → pagou, lançamento de gasto de mídia e custo por cliente em `/platform/aquisicao`. **Encurtador de link de divulgação** `/i/<codigo>` no próprio domínio (entregue 2026-09-04, BR-23/PDR-021). | M |
+| RF-07 | Aquisição (entregue 2026-08-31, BR-23/PDR-020): de onde veio cada restaurante (canal, campanha, criativo), funil cadastrou → ativou → pagou, lançamento de gasto de mídia e custo por cliente em `/platform/aquisicao`. **Encurtador de link de divulgação** `/i/<codigo>` no próprio domínio (entregue 2026-09-04, BR-23/PDR-021). **Contagem de visitas** por link, uma por visitante novo (entregue 2026-09-11, BR-23). | M |
 | RF-08 | Área de afiliados (entregue 2026-09-09, BR-24/PDR-022): quem divulga entra em `/afiliados` com credencial única e vê, **somente leitura**, quantos restaurantes vieram de cada código e em que situação estão (teste, teste vencido, pagante, assinatura vencida). Sem nome, e-mail ou valores do restaurante. | M |
 
 ## Configuração do restaurante

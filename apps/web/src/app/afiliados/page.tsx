@@ -168,10 +168,23 @@ export default function AfiliadosPage() {
                 Código <span className="font-mono text-rose-700">{b.codigo}</span>
               </h2>
               <p className="text-sm text-neutral-600">
-                {b.cadastros} cadastro{b.cadastros === 1 ? '' : 's'} · <strong className="text-neutral-900">{b.pagantes}</strong> pagante
-                {b.pagantes === 1 ? '' : 's'}
+                {b.visitas} clique{b.visitas === 1 ? '' : 's'} · {b.cadastros} cadastro{b.cadastros === 1 ? '' : 's'} ·{' '}
+                <strong className="text-neutral-900">{b.pagantes}</strong> pagante{b.pagantes === 1 ? '' : 's'}
               </p>
             </div>
+
+            {/*
+              Zero cadastros com cliques e zero cadastros sem cliques são problemas
+              opostos — distribuição fraca vs. página que não convence. Dizer qual
+              é o caso é o motivo de a contagem existir.
+            */}
+            {b.cadastros === 0 && (
+              <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
+                {b.visitas === 0
+                  ? 'Ninguém clicou neste link ainda.'
+                  : `${b.visitas} pessoa${b.visitas === 1 ? '' : 's'} abriu o link e ainda não se cadastrou.`}
+              </p>
+            )}
 
             <ul className="mt-3 space-y-2">
               {b.indicacoes.map((i) => (
@@ -191,8 +204,9 @@ export default function AfiliadosPage() {
         ))}
 
         <p className="mt-8 text-xs leading-relaxed text-neutral-500">
-          Por privacidade dos restaurantes, esta tela não mostra nome, e-mail nem valores. A referência serve para conferir um cadastro
-          específico com a gente.
+          <strong>Clique</strong> é cada pessoa nova que abriu o seu link — quem navega pelo site ou volta depois não conta de novo, e quem digita
+          o endereço direto não entra na conta de ninguém. Por privacidade dos restaurantes, esta tela não mostra nome, e-mail nem valores. A
+          referência serve para conferir um cadastro específico com a gente.
         </p>
       </div>
     </main>

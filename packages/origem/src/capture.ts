@@ -3,7 +3,7 @@
 // testes de lá, e sincronize com: node scripts/sync-origem.mjs
 import { classify, deveSubstituirUltimoToque } from "./classify";
 import { serializarToque, desserializarToque, lerCookie, nomesDeCookie } from "./cookies";
-import type { CaptureOptions, Touch } from "./types";
+import type { CaptureOptions, ResultadoDaCaptura } from "./types";
 
 /**
  * Captura no navegador.
@@ -18,7 +18,7 @@ import type { CaptureOptions, Touch } from "./types";
  * aceitável, já que o conteúdo é a própria campanha que trouxe a pessoa, e não
  * segredo. Nada de identificador pessoal entra aqui.
  */
-export function capturar(options: CaptureOptions = {}): { primeiro: Touch; ultimo: Touch } | null {
+export function capturar(options: CaptureOptions = {}): ResultadoDaCaptura | null {
   if (typeof document === "undefined" || typeof window === "undefined") return null;
 
   const {
@@ -47,8 +47,16 @@ export function capturar(options: CaptureOptions = {}): { primeiro: Touch; ultim
    * única pista de que o anúncio não fez a descoberta, apenas a conversão.
    */
   const primeiro = primeiroAtual ?? toque;
+  let novo = false;
   if (!primeiroAtual) {
     gravarCookie(nomes.primeiro, serializarToque(toque), firstTouchDays, cookieDomain);
+    /*
+     * Reler depois de gravar é o que torna `novo` confiável. Se o navegador
+     * recusou o cookie (modo privado com restrição, extensão), cada página
+     * aberta pareceria a primeira, e a mesma pessoa viraria dez visitas. Sem
+     * cookie não há como saber se é a primeira vez — então não é contada.
+     */
+    novo = Boolean(lerCookie(document.cookie, nomes.primeiro));
   }
 
   const ultimo = deveSubstituirUltimoToque(ultimoAtual, toque) ? toque : (ultimoAtual ?? primeiro);
@@ -56,7 +64,7 @@ export function capturar(options: CaptureOptions = {}): { primeiro: Touch; ultim
     gravarCookie(nomes.ultimo, serializarToque(toque), lastTouchDays, cookieDomain);
   }
 
-  return { primeiro, ultimo };
+  return { primeiro, ultimo, novo };
 }
 
 /** Monta o atributo `Domain`, ou string vazia quando o cookie deve ser host-only. */

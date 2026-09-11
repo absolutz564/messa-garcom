@@ -587,6 +587,30 @@ export const origemLink = pgTable(
   ],
 );
 
+/**
+ * BR-23 — visita que chegou por link marcado, contada uma vez por visitante novo.
+ *
+ * Existe para separar "ninguém clicou" de "clicaram e não se cadastraram": sem
+ * isso, zero cadastros é um número mudo. Só a marcação e a data — **nada de IP,
+ * user agent ou identificador de pessoa**. O que se conta é "quantos vieram por
+ * este link", não quem são.
+ */
+export const origemVisita = pgTable(
+  'origem_visita',
+  {
+    id: textId(),
+    channel: text('channel').notNull(),
+    source: text('source'),
+    medium: text('medium'),
+    campaign: text('campaign'),
+    content: text('content'),
+    /** Sem query string: a marcação já está nas colunas, e a query aceita qualquer coisa. */
+    landingPath: text('landing_path'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('origem_visita_origem_idx').on(t.medium, t.source, t.createdAt), index('origem_visita_quando_idx').on(t.createdAt)],
+);
+
 // ---------------------------------------------------------------------------
 // Infra: outbox e idempotência
 // ---------------------------------------------------------------------------

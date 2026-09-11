@@ -9,6 +9,7 @@ import {
   type CreateCampaignLink,
   type ShortLinkTarget,
 } from '@messa/contracts';
+import { visitaDe } from '@messa/origem';
 import { Public, PlatformAdmin } from '../../common/decorators';
 import { RateLimit } from '../../common/guards/ip-rate-limit.guard';
 import { ZodPipe } from '../../common/zod.pipe';
@@ -116,3 +117,31 @@ const MEDIUM_POR_CANAL: Record<CreateCampaignLink['channel'], string> = {
   direct: 'none',
   other: 'other',
 };
+
+/**
+ * Recebe a visita que o rastreador conta no primeiro toque (BR-23).
+ *
+ * Pública por necessidade: quem clica num link de divulgação ainda não tem
+ * conta. Isso a torna gravável por qualquer um, então o que limita o estrago é o
+ * teto por IP e a lista fechada de `visitaDe` — só seis campos, só string, só
+ * canal conhecido. O pior caso é alguém inflar a contagem de um código que já
+ * conhece: ruim, mas não é acesso a nada.
+ *
+ * Responde **204 sempre**, inclusive para corpo ruim. Contar visita não é
+ * serviço prestado a quem visita, e devolver erro ensinaria um robô a calibrar
+ * a tentativa seguinte.
+ */
+@Public()
+@RateLimit({ bucket: 'origem_visita', limit: 30, windowMs: 60 * 60_000 })
+@Controller('public/origem')
+export class VisitController {
+  constructor(private readonly acquisition: AcquisitionService) {}
+
+  @Post('visita')
+  @HttpCode(204)
+  async visita(@Body() corpo: unknown): Promise<void> {
+    const visita = visitaDe((corpo ?? {}) as Parameters<typeof visitaDe>[0]);
+    if (!visita) return;
+    await this.acquisition.registrarVisita(visita);
+  }
+}

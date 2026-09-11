@@ -4,8 +4,9 @@ import { uuidv7 } from 'uuidv7';
 import { schema, type DbHandle } from '@messa/db';
 import { campaignShortCode } from '@messa/domain';
 import { lerOrigem } from '@messa/origem';
-import { gravarAtribuicao, lancarGasto, registrarEvento, relatorio } from '@messa/origem/dist/adapters/sql';
-import type { Attribution, Channel, LinhaRelatorio, OpcoesRelatorio } from '@messa/origem';
+import { contarVisitas, gravarAtribuicao, lancarGasto, registrarEvento, registrarVisita, relatorio } from '@messa/origem/dist/adapters/sql';
+import type { FiltroDeVisitas } from '@messa/origem/dist/adapters/sql';
+import type { Attribution, Channel, LinhaRelatorio, OpcoesRelatorio, Visita, VisitasContadas } from '@messa/origem';
 import { DB } from '../db/db.module';
 
 /** O sujeito atribuído no Messa é o restaurante, não a pessoa. */
@@ -20,7 +21,7 @@ export const MARCO = { cadastrou: 'cadastrou', ativou: 'ativou', pagou: 'pagou' 
  */
 const OPCOES = {
   colunas: 'snake' as const,
-  tabelas: { atribuicao: 'origem_atribuicao', evento: 'origem_evento', gasto: 'origem_gasto', link: 'origem_link' },
+  tabelas: { atribuicao: 'origem_atribuicao', evento: 'origem_evento', gasto: 'origem_gasto', link: 'origem_link', visita: 'origem_visita' },
   novoId: () => uuidv7(),
 };
 
@@ -62,6 +63,22 @@ export class AcquisitionService {
     await this.silencioso(`marcar ${marco}`, () =>
       registrarEvento(this.db.origemExecutor, SUBJECT, tenantId, marco, extras, OPCOES),
     );
+  }
+
+  /**
+   * Conta uma visita que chegou por link marcado (BR-23).
+   *
+   * Best-effort como o resto: a rota é pública e chamada em toda primeira
+   * visita — falha aqui não pode virar erro na página que o anúncio acabou de
+   * abrir. A decisão de contar (visitante novo, não direto) já foi tomada por
+   * `visitaParaContar` no navegador e conferida por `visitaDe` no controller.
+   */
+  async registrarVisita(visita: Visita): Promise<void> {
+    await this.silencioso('registrar visita', () => registrarVisita(this.db.origemExecutor, visita, OPCOES));
+  }
+
+  contarVisitas(filtro: FiltroDeVisitas = {}): Promise<VisitasContadas[]> {
+    return contarVisitas(this.db.origemExecutor, filtro, OPCOES);
   }
 
   // ---------------------------------------------------------------- Super Admin

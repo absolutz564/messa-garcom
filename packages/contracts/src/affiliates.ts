@@ -27,6 +27,11 @@ export type AffiliateReferral = z.infer<typeof AffiliateReferralSchema>;
 export const AffiliateBlockSchema = z.object({
   /** O código do link (`/i/<codigo>`) — é como o divulgador se reconhece na lista. */
   codigo: z.string(),
+  /**
+   * Visitantes novos que chegaram pelo link (BR-23). É o que separa "ninguém
+   * clicou" de "clicaram e não se cadastraram" quando `cadastros` é zero.
+   */
+  visitas: z.number().int(),
   cadastros: z.number().int(),
   pagantes: z.number().int(),
   indicacoes: z.array(AffiliateReferralSchema),

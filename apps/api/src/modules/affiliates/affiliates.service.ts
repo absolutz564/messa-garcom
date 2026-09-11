@@ -4,7 +4,7 @@ import { schema, type DbHandle } from '@messa/db';
 import { evaluateTenantBilling } from '@messa/domain';
 import type { AffiliateBlock, AffiliateReferral } from '@messa/contracts';
 import { DB } from '../db/db.module';
-import { MARCO, SUBJECT } from '../acquisition/acquisition.service';
+import { AcquisitionService, MARCO, SUBJECT } from '../acquisition/acquisition.service';
 
 /**
  * `utm_medium` que só os links gerados em /platform/aquisicao para o canal
@@ -28,9 +28,20 @@ const MEDIUM_AFILIADO = 'referral';
  */
 @Injectable()
 export class AffiliatesService {
-  constructor(@Inject(DB) private readonly db: DbHandle) {}
+  constructor(
+    @Inject(DB) private readonly db: DbHandle,
+    private readonly acquisition: AcquisitionService,
+  ) {}
 
   async painel(): Promise<AffiliateBlock[]> {
+    // Visitas vêm da tabela própria, agrupadas no banco; cadastros vêm da
+    // atribuição. Os dois são creditados por primeiro toque, então somam na
+    // mesma conta — cruzar com último toque misturaria modelos.
+    const visitasPorCodigo = new Map<string, number>();
+    for (const v of await this.acquisition.contarVisitas({ medium: MEDIUM_AFILIADO })) {
+      if (v.source) visitasPorCodigo.set(v.source, (visitasPorCodigo.get(v.source) ?? 0) + v.visitas);
+    }
+
     return this.db.withPlatformTx(async (tx) => {
       const atribuicoes = await tx
         .select({ subjectId: schema.origemAtribuicao.subjectId, source: schema.origemAtribuicao.firstSource })
@@ -42,7 +53,13 @@ export class AffiliatesService {
             isNotNull(schema.origemAtribuicao.firstSource),
           ),
         );
-      if (atribuicoes.length === 0) return [];
+      // Código com visitas e zero cadastros precisa aparecer: é exatamente o
+      // caso "clicaram e não se cadastraram" que a contagem existe para mostrar.
+      const porAfiliado = new Map<string, AffiliateBlock>();
+      for (const [codigo, visitas] of visitasPorCodigo) {
+        porAfiliado.set(codigo, { codigo, visitas, cadastros: 0, pagantes: 0, indicacoes: [] });
+      }
+      if (atribuicoes.length === 0) return [...porAfiliado.values()].sort((x, y) => y.visitas - x.visitas);
 
       const ids = atribuicoes.map((a) => a.subjectId);
       const [restaurantes, pagamentos] = await Promise.all([
@@ -74,14 +91,13 @@ export class AffiliatesService {
       const porId = new Map(restaurantes.map((r) => [r.id, r]));
       const pagouEm = new Map(pagamentos.map((p) => [p.subjectId, p.occurredAt]));
 
-      const porAfiliado = new Map<string, AffiliateBlock>();
       for (const a of atribuicoes) {
         const tenant = porId.get(a.subjectId);
         // Restaurante removido: a atribuição sobreviveu, mas não há o que mostrar.
         if (!tenant) continue;
 
         const codigo = a.source!;
-        const bloco = porAfiliado.get(codigo) ?? { codigo, cadastros: 0, pagantes: 0, indicacoes: [] };
+        const bloco = porAfiliado.get(codigo) ?? { codigo, visitas: visitasPorCodigo.get(codigo) ?? 0, cadastros: 0, pagantes: 0, indicacoes: [] };
 
         const pagou = pagouEm.get(a.subjectId) ?? null;
         bloco.cadastros += 1;
@@ -100,7 +116,7 @@ export class AffiliatesService {
       for (const bloco of porAfiliado.values()) {
         bloco.indicacoes.sort((x, y) => y.cadastradaEm.localeCompare(x.cadastradaEm));
       }
-      return [...porAfiliado.values()].sort((x, y) => y.cadastros - x.cadastros);
+      return [...porAfiliado.values()].sort((x, y) => y.cadastros - x.cadastros || y.visitas - x.visitas);
     });
   }
 }

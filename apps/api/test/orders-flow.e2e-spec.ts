@@ -208,6 +208,32 @@ describe('orders flow (e2e)', () => {
     await staff(operator, 'POST', `/staff/sessions/${sessionId}/close`, { force: true });
   });
 
+  it('BR-08/BR-09: sessão velha no relógio exige confirmação mesmo com o job de fundo parado', async () => {
+    // Mesa própria: o limite de RF-45 é por mesa (5 solicitações/10 min), e
+    // gastar mais uma vaga na mesa compartilhada derrubaria os testes seguintes.
+    const propria = (await staff(admin, 'POST', '/admin/tables', { displayName: `Mesa Relogio ${run}` })).json() as { id: string; publicToken: string };
+    const a = phone();
+    const r = await a.call('POST', `/public/tables/${propria.publicToken}/requests`);
+    expect(r.statusCode).toBe(201);
+    expect((await staff(operator, 'POST', `/staff/requests/${r.json().id}/approve`, {})).statusCode).toBe(200);
+    await a.call('GET', `/public/tables/${propria.publicToken}/requests/${r.json().id}`);
+    const sessionId = (await a.call('GET', '/public/session')).json().id as string;
+    // Envelhece a sessão SEM chamar markInactiveSessions: é o estado real quando
+    // o sistema ficou ocioso e o job não rodou. A coluna segue 'active'.
+    await db.withTenantTx(tenantId, (tx) => tx.update(schema.sessions).set({ lastActivityAt: new Date(Date.now() - 2 * 3_600_000) }).where(eq(schema.sessions.id, sessionId)));
+    const persistido = await db.withTenantTx(tenantId, (tx) => tx.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId)));
+    expect(persistido[0]!.status).toBe('active');
+
+    // Antes de derivar o status na leitura, este pedido entrava direto — sem o
+    // operador confirmar, contra BR-09.
+    const res = await a.call('POST', '/public/session/orders', { items: [{ productId: beer, quantity: 1 }] }, key());
+    expect(res.statusCode).toBe(201);
+    expect(res.json().awaitingConfirmation).toBe(true);
+    expect(res.json().order.status).toBe('pending_confirmation');
+
+    await staff(operator, 'POST', `/staff/sessions/${sessionId}/close`, { force: true });
+  });
+
   it('F11/F12: "new session" migrates the pending order and preserves the old bill', async () => {
     const { phone: a, sessionId: oldId } = await seatCustomer();
     await a.call('POST', '/public/session/orders', { items: [{ productId: burger, quantity: 1 }] }, key());

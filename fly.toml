@@ -36,12 +36,18 @@ primary_region = "gru"
     soft_limit = 200
     hard_limit = 400
 
+  # `/health` e não `/ready`: o check bate a cada 15 s, e `/ready` consulta o
+  # banco — sozinho isso impedia o Postgres de suspender e consumia a franquia
+  # mensal inteira. Pior: com o banco indisponível o check reprovava, o proxy
+  # tirava a máquina da rede e a API sumia por completo. O cliente recebia
+  # "Failed to fetch" em vez de um erro legível, e reiniciar a máquina nunca
+  # consertou banco fora do ar. `/ready` continua existindo para diagnóstico.
   [[http_service.checks]]
     grace_period = "20s"
     interval = "15s"
     method = "GET"
     timeout = "3s"
-    path = "/ready"
+    path = "/health"
 
 # Uploads de imagens (logo, fotos de produtos) persistem entre deploys.
 # Criar uma vez: fly volumes create messa_data --region gru --size 1

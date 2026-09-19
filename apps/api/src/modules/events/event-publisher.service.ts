@@ -4,6 +4,7 @@ import { isNull, sql } from 'drizzle-orm';
 import { schema, type DbHandle } from '@messa/db';
 import type { DomainEventEnvelope, EventType } from '@messa/contracts';
 import { DB } from '../db/db.module';
+import { ActivityService, OCIOSO_MS } from '../../common/activity.service';
 import { RealtimeGateway } from './realtime.gateway';
 
 /**
@@ -19,6 +20,7 @@ export class EventPublisher implements OnModuleDestroy {
   constructor(
     @Inject(DB) private readonly db: DbHandle,
     private readonly realtime: RealtimeGateway,
+    private readonly activity: ActivityService,
   ) {}
 
   onModuleDestroy() {
@@ -28,6 +30,15 @@ export class EventPublisher implements OnModuleDestroy {
   @Interval(500)
   async tick() {
     if (this.running || this.stopped) return;
+    /*
+     * Evento de domínio só nasce de requisição. Com a casa vazia não há o que
+     * publicar, e consultar mesmo assim — duas vezes por segundo, para sempre —
+     * era o que mantinha o banco ligado 24 h por dia e consumia a franquia
+     * mensal inteira. A folga de OCIOSO_MS garante que o que foi escrito pela
+     * última requisição saia antes de a porta fechar; a próxima requisição
+     * reabre em 500 ms, então a latência de quem está pedindo não muda.
+     */
+    if (this.activity.ocioso(OCIOSO_MS)) return;
     this.running = true;
     try {
       await this.publishBatch();

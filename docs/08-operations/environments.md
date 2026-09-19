@@ -21,10 +21,10 @@ runas /trustlevel:0x20000 "cmd /c <caminho>\pg_ctl.exe -D <repo>\infra\.pgdata -
 |---|---|---|
 | Web | Vercel, projeto `messa-garcom-web` (Root Directory `apps/web`) | `https://messa-garcom.com.br` (`www` → 308) |
 | API | Fly.io, app `messa-api`, região `gru`, volume `messa_data` | `https://api.messa-garcom.com.br` (`messa-api.fly.dev`) |
-| Banco | Neon, projeto `messa`, `sa-east-1`, PG 18, db `neondb` | free tier — *scale to zero* não pode ser desligado no free; o monitor de uptime em `/ready` a cada 5 min mantém o compute acordado |
+| Banco | Neon, projeto `messa`, `sa-east-1`, PG 18, db `neondb` | free tier — 100 CU-hrs/projeto/mês. **O compute precisa dormir** (BR-25/PDR-023): nada pode consultar o banco com o sistema ocioso, senão a franquia acaba no meio do mês e o produto desliga sozinho — foi o incidente de 18/09/2026 |
 | E-mail | Resend, domínio `messa-garcom.com.br` | remetente `Messa <no-reply@messa-garcom.com.br>` |
 | DNS | registro.br (`a/b.auto.dns.br`) | A apex → Vercel; A/AAAA `api` → Fly; DKIM/SPF/MX `send` → Resend |
-| Uptime | UptimeRobot (5 min) | `/ready` da API e `/` do web |
+| Uptime | UptimeRobot (5 min) | **`/health`** da API (nunca `/ready`: ele consulta o banco e impede a suspensão) e `/` do web |
 | Código | GitHub `absolutz564/messa-garcom`, branch `main` | push em `main` ⇒ Vercel; tag `v*` ⇒ Fly (`deploy-api.yml`, requer secret `FLY_API_TOKEN`) |
 
 ## Custos estimados (MVP)
@@ -49,7 +49,7 @@ Passo a passo completo em [deploy.md](deploy.md). Lição do incidente `comparad
 - Logs: pino JSON com `request_id`, `tenant_id`, `actor`, `session_id`. Sem PII.
 - Erros: Sentry (API e web) com `tenant_id` como tag.
 - Métricas de negócio (contadores expostos em `/metrics` e logados): `requests_created`, `requests_approved`, `requests_rejected`, `devices_blocked`, `sessions_opened`, `sessions_closed`, `orders_created`, `orders_acknowledged`, `orders_unacknowledged_over_10min` (alerta).
-- Health: `/health` (liveness) e `/ready` (DB + publisher).
+- Health: `/health` (liveness, usado pelo check da Fly e pelo monitor) e `/ready` (liveness + banco, só para diagnóstico manual).
 - OpenTelemetry instrumentação básica desde a fase 0; exporter só quando compensar.
 
 ## Runbook (inicial)

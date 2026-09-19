@@ -6,6 +6,26 @@ export function isSessionInactive(now: Date, lastActivityAt: Date): boolean {
   return now.getTime() - lastActivityAt.getTime() >= RULES.SESSION_INACTIVITY_MS;
 }
 
+/**
+ * BR-08 — status que vale **agora**, derivado na leitura.
+ *
+ * A coluna `status` só vira `inactive` quando o job de fundo passa. Quem decide
+ * o destino de um pedido não pode depender disso: entre a hora de inatividade
+ * completar e o job rodar existe uma janela em que a sessão está velha no
+ * relógio e `active` no banco — e um pedido de cliente entraria direto, sem a
+ * confirmação do operador que BR-09 exige. A janela é de segundos com o job de
+ * 60 s, mas passa a ser longa quando ele deixa de rodar com o sistema ocioso.
+ *
+ * Mesma escolha de `evaluateTenantBilling` (PDR-017): estado derivado na
+ * leitura, nunca salvo, para que a decisão e a tela não possam discordar. O job
+ * continua existindo — ele é quem grava a mudança e publica o evento para o
+ * painel —, mas virou escrituração, não a fonte da verdade.
+ */
+export function effectiveSessionStatus(persisted: SessionStatus, now: Date, lastActivityAt: Date): SessionStatus {
+  if (persisted === 'active' && isSessionInactive(now, lastActivityAt)) return 'inactive';
+  return persisted;
+}
+
 export type OrderPlacementDecision =
   | { kind: 'submit'; reactivate: boolean }
   | { kind: 'await_confirmation' };

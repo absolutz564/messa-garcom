@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { schema, type DbHandle, type Tx } from '@messa/db';
-import { decideOrderPlacement, DomainError, evaluateTenantBilling, isBlockedWhileStaffOffline, RULES, validateOrderLines, type Actor, type CatalogProduct } from '@messa/domain';
+import { decideOrderPlacement, DomainError, effectiveSessionStatus, evaluateTenantBilling, isBlockedWhileStaffOffline, RULES, validateOrderLines, type Actor, type CatalogProduct } from '@messa/domain';
 import { ptBR, type CreateOrder, type CreateOrderResult, type Order, type SessionConsumption, type StaffOrder } from '@messa/contracts';
 import { DB } from '../db/db.module';
 import { OutboxService } from '../events/outbox.service';
@@ -50,7 +50,12 @@ export class OrderService {
       // BR-18: com a conta pedida, o cliente não adiciona itens (staff ainda pode, ex.: correção).
       if (actor.kind === 'customer' && fresh!.billRequestedAt) throw new DomainError('bill_requested', 'A conta já foi pedida para esta mesa. Cancele o pedido de conta para pedir mais itens.');
 
-      const placement = decideOrderPlacement(fresh!.status as 'active' | 'inactive' | 'closed', actor.kind);
+      // BR-08/BR-09: a inatividade vale pelo relógio, não por o job já ter
+      // gravado. Sem isto, uma sessão parada há mais de uma hora aceitaria o
+      // pedido do cliente direto, sem a confirmação do operador, em toda janela
+      // entre completar a hora e o job passar.
+      const efetivo = effectiveSessionStatus(fresh!.status as 'active' | 'inactive' | 'closed', new Date(), fresh!.lastActivityAt);
+      const placement = decideOrderPlacement(efetivo, actor.kind);
 
       // BR-11: valida contra o catálogo e congela nome/preço.
       const ids = [...new Set(input.items.map((i) => i.productId))];

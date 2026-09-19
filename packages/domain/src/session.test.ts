@@ -3,6 +3,7 @@ import {
   assertSessionTransition,
   decideCloseSession,
   decideOrderPlacement,
+  effectiveSessionStatus,
   isSessionInactive,
 } from './session';
 import { RULES } from './constants';
@@ -54,5 +55,33 @@ describe('assertSessionTransition', () => {
   });
   it('inactive → active allowed', () => {
     expect(() => assertSessionTransition('inactive', 'active')).not.toThrow();
+  });
+});
+
+describe('effectiveSessionStatus (BR-08)', () => {
+  const now = new Date('2026-08-29T22:00:00Z');
+  const velha = new Date(now.getTime() - RULES.SESSION_INACTIVITY_MS);
+  const recente = new Date(now.getTime() - 60_000);
+
+  it('sessão parada há 1h vale como inativa mesmo antes de o job gravar', () => {
+    // É esta a janela que deixava um pedido de cliente entrar sem a confirmação
+    // do operador — curta com o job de 60 s, longa quando ele não roda.
+    expect(effectiveSessionStatus('active', now, velha)).toBe('inactive');
+  });
+
+  it('sessão com movimento recente continua ativa', () => {
+    expect(effectiveSessionStatus('active', now, recente)).toBe('active');
+  });
+
+  it('não ressuscita o que já está inativo nem encerrado', () => {
+    expect(effectiveSessionStatus('inactive', now, recente)).toBe('inactive');
+    expect(effectiveSessionStatus('closed', now, recente)).toBe('closed');
+    expect(effectiveSessionStatus('closed', now, velha)).toBe('closed');
+  });
+
+  it('o pedido do cliente numa sessão velha passa a exigir confirmação', () => {
+    expect(decideOrderPlacement(effectiveSessionStatus('active', now, velha), 'customer')).toEqual({ kind: 'await_confirmation' });
+    // E o garçom continua reativando direto (PDR-002).
+    expect(decideOrderPlacement(effectiveSessionStatus('active', now, velha), 'staff')).toEqual({ kind: 'submit', reactivate: true });
   });
 });

@@ -77,7 +77,7 @@ await sql.end();console.log('ok')})()\" 'SUA_SENHA_FORTE'"
 Cookies: web e API estão no mesmo *site* (`messa-garcom.com.br`), então `SameSite=Lax` funciona para o refresh e para os cookies do cliente.
 
 ## 6. Monitoramento (obrigatório — RNF-05)
-- [Better Stack](https://betterstack.com) ou [UptimeRobot](https://uptimerobot.com) (free): monitor HTTP em `https://api.messa-garcom.com.br/ready` a cada 1 min, alerta por e-mail/WhatsApp. Segundo monitor em `https://messa-garcom.com.br/`.
+- [Better Stack](https://betterstack.com) ou [UptimeRobot](https://uptimerobot.com) (free): monitor HTTP em `https://api.messa-garcom.com.br/health` a cada 5 min (**nunca** `/ready`: ele consulta o banco e impede a suspensão automática — ver BR-25), alerta por e-mail/WhatsApp. Segundo monitor em `https://messa-garcom.com.br/`.
 - Sentry (free): `SENTRY_DSN` — instrumentação entra quando o piloto começar a gerar erros reais.
 - `fly logs --app messa-api` para logs JSON ao vivo.
 

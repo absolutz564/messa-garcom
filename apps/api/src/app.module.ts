@@ -23,6 +23,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { IpRateLimitGuard } from './common/guards/ip-rate-limit.guard';
 import { RequestContextModule } from './common/request-context.module';
+import { ActivityModule } from './common/activity.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { RequestContextModule } from './common/request-context.module';
     }),
     ScheduleModule.forRoot(),
     RequestContextModule,
+    ActivityModule,
     DbModule,
     EventsModule,
     HealthModule,

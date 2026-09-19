@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
+import { ActivityService, OCIOSO_MS } from '../../common/activity.service';
 import { BillingService } from './billing.service';
 
 /**
@@ -13,7 +14,10 @@ export class BillingJobs implements OnModuleDestroy {
   private stopped = false;
   private running = false;
 
-  constructor(private readonly billing: BillingService) {}
+  constructor(
+    private readonly billing: BillingService,
+    private readonly activity: ActivityService,
+  ) {}
 
   onModuleDestroy() {
     this.stopped = true;
@@ -22,6 +26,14 @@ export class BillingJobs implements OnModuleDestroy {
   @Interval(5 * 60_000)
   async tick() {
     if (this.stopped || this.running) return;
+    /*
+     * Quem acabou de pagar um Pix está com a tela da assinatura aberta, e ela
+     * confirma sozinha enquanto estiver ali (BR-20). Este job é a rede de
+     * segurança para quem fechou a aba — e essa pessoa volta ao sistema em
+     * algum momento, o que reabre a porta e confirma em até 5 min. O preço de
+     * consultar a cada 5 min com a casa vazia é o banco nunca dormir.
+     */
+    if (this.activity.ocioso(OCIOSO_MS)) return;
     this.running = true;
     try {
       const created = await this.billing.generateRenewalCharges();

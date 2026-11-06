@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BILLING_PLANS, evaluateTenantBilling, nextBillingCycleEnd, shouldGenerateRenewalCharge } from './billing';
+import { BILLING_PLANS, evaluateTenantBilling, nextBillingCycleEnd } from './billing';
 
 describe('evaluateTenantBilling (BR-20)', () => {
   const now = new Date('2026-08-30T12:00:00Z');
@@ -77,27 +77,5 @@ describe('BILLING_PLANS (PDR-017)', () => {
     // Semestral economiza vs. 6x mensal; anual economiza vs. 12x mensal.
     expect(6 * BILLING_PLANS.monthly.priceCents - BILLING_PLANS.semiannual.priceCents).toBe(9_400);
     expect(12 * BILLING_PLANS.monthly.priceCents - BILLING_PLANS.annual.priceCents).toBe(28_800);
-  });
-});
-
-describe('shouldGenerateRenewalCharge (BR-20)', () => {
-  const now = new Date('2026-08-30T12:00:00Z');
-  const trialEndsAt = new Date(now.getTime() + 3 * 86_400_000);
-
-  it('dentro da janela de 5 dias e sem cobrança pendente ⇒ gera', () => {
-    expect(shouldGenerateRenewalCharge({ billingStatus: 'trial', trialEndsAt, subscriptionEndsAt: null }, false, now)).toBe(true);
-  });
-
-  it('já existe cobrança pendente válida ⇒ não gera de novo', () => {
-    expect(shouldGenerateRenewalCharge({ billingStatus: 'trial', trialEndsAt, subscriptionEndsAt: null }, true, now)).toBe(false);
-  });
-
-  it('fora da janela (vencimento distante) ⇒ não gera ainda', () => {
-    const far = new Date(now.getTime() + 20 * 86_400_000);
-    expect(shouldGenerateRenewalCharge({ billingStatus: 'trial', trialEndsAt: far, subscriptionEndsAt: null }, false, now)).toBe(false);
-  });
-
-  it('sem prazo (tenant migrado) ⇒ nunca gera', () => {
-    expect(shouldGenerateRenewalCharge({ billingStatus: 'active', trialEndsAt: null, subscriptionEndsAt: null }, false, now)).toBe(false);
   });
 });

@@ -59,15 +59,22 @@ export function evaluateTenantBilling(t: TenantBillingInput, now: Date = new Dat
   return { canServeCustomers: false, phase: 'blocked', daysLeft };
 }
 
-/**
- * BR-20 — perto do vencimento, sem cobrança pendente válida, o sistema gera a
- * próxima sozinho. `hasPendingCharge` já considera `expiresAt > now` (cobrança vencida
- * não conta).
+/*
+ * `shouldGenerateRenewalCharge` viveu aqui e foi removida com PDR-024.
+ *
+ * Ela decidia quando o job criava a próxima cobrança. Perguntava se a janela de
+ * renovação já tinha COMEÇADO e nunca se ela havia passado, então um vencimento
+ * de semanas atrás a satisfazia para sempre — e, como a cobrança vale 30 min, a
+ * expiração virava o gatilho da seguinte. Resultado: 10.359 cobranças reais de
+ * R$ 149, em contas que o próprio sistema já tinha bloqueado.
+ *
+ * Os tetos que fechariam o ciclo foram escritos e testados. Depois veio o fato
+ * que os tornou inúteis: ninguém era avisado da cobrança gerada. O evento
+ * `billing.charge_created` nunca teve consumidor, o e-mail nunca foi escrito, e
+ * o banner do painel sempre dependeu do vencimento, não da cobrança. O job
+ * gastava dinheiro de verdade para produzir um QR de 30 minutos que ninguém via.
+ *
+ * Hoje quem cria cobrança é a tela de assinatura, com o admin presente. Se um
+ * dia o aviso por e-mail existir, ele deve levar um LINK para a tela — nunca o
+ * QR dentro, que morre antes de a pessoa abrir a caixa de entrada.
  */
-export function shouldGenerateRenewalCharge(t: TenantBillingInput, hasPendingCharge: boolean, now: Date = new Date()): boolean {
-  if (hasPendingCharge) return false;
-  const deadline = t.billingStatus === 'trial' ? t.trialEndsAt : t.subscriptionEndsAt;
-  if (!deadline) return false;
-  const leadStart = new Date(deadline.getTime() - RULES.BILLING_RENEWAL_LEAD_DAYS * DAY_MS);
-  return now >= leadStart;
-}

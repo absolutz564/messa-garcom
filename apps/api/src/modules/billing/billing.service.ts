@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { and, eq, gt, lt } from 'drizzle-orm';
+import { and, desc, eq, gt, lt } from 'drizzle-orm';
 import { schema, type DbHandle, type Tx } from '@messa/db';
 import {
   BILLING_PLANS,
@@ -8,7 +8,6 @@ import {
   RULES,
   evaluateTenantBilling,
   nextBillingCycleEnd,
-  shouldGenerateRenewalCharge,
   type BillingPlan,
 } from '@messa/domain';
 import type { BillingStatus, PixCharge } from '@messa/contracts';
@@ -98,33 +97,11 @@ export class BillingService {
 
   // =====================================================================
   // Jobs (rodam para todos os tenants — mesmo padrão de session.jobs.ts)
+  //
+  // Nenhum deles cria cobrança (BR-20/PDR-024): criar pagamento é ação de quem
+  // está na tela, não de relógio. Aqui só se confirma o que já foi pago e se
+  // encerra o que venceu.
   // =====================================================================
-
-  /** 5 dias antes do vencimento, sem cobrança pendente, gera a próxima sozinho. */
-  async generateRenewalCharges(): Promise<number> {
-    const provider = this.providers.get(RULES.BILLING_CHARGE_TTL_MIN);
-    if (!provider) return 0;
-    return this.db.withPlatformTx(async (tx) => {
-      const tenants = await tx.select().from(schema.tenants);
-      const now = new Date();
-      let created = 0;
-      for (const tenant of tenants) {
-        const [pending] = await tx
-          .select({ id: schema.pixCharges.id })
-          .from(schema.pixCharges)
-          .where(and(eq(schema.pixCharges.tenantId, tenant.id), eq(schema.pixCharges.status, 'pending'), gt(schema.pixCharges.expiresAt, now)));
-        const billing = { billingStatus: tenant.billingStatus as 'trial' | 'active', trialEndsAt: tenant.trialEndsAt, subscriptionEndsAt: tenant.subscriptionEndsAt };
-        if (!shouldGenerateRenewalCharge(billing, Boolean(pending), now)) continue;
-        try {
-          await this.createCharge(tx, tenant, (tenant.billingPlan as BillingPlan | null) ?? DEFAULT_BILLING_PLAN, provider, await this.adminEmail(tx, tenant.id));
-          created++;
-        } catch (err) {
-          this.log.error(`falha ao gerar cobrança de renovação para ${tenant.id}: ${(err as Error).message}`);
-        }
-      }
-      return created;
-    });
-  }
 
   /** Confirma sozinho toda cobrança pendente — o admin não precisa manter a tela aberta. */
   async confirmPendingCharges(): Promise<number> {

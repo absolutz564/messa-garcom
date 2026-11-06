@@ -4,9 +4,15 @@ import { ActivityService, OCIOSO_MS } from '../../common/activity.service';
 import { BillingService } from './billing.service';
 
 /**
- * Job de 5 min (BR-20/ADR-006): gera a próxima cobrança perto do vencimento,
- * confirma sozinho toda cobrança pendente (o admin não precisa manter a tela
- * aberta) e limpa cobranças vencidas sem pagamento.
+ * Job de 5 min (BR-20/PDR-024): confirma sozinho toda cobrança pendente — é isto
+ * que cumpre "o admin não precisa manter a tela aberta" — e limpa as vencidas.
+ *
+ * **Nenhum job cria cobrança.** Quem cria é a tela de assinatura, sob demanda,
+ * com o admin presente. A geração automática existiu e produziu 10.359 cobranças
+ * reais de R$ 149 em contas que o próprio sistema já havia bloqueado: ninguém era
+ * avisado delas (o evento `billing.charge_created` nunca teve consumidor e o
+ * e-mail nunca foi escrito) e cada uma valia 30 minutos. Pagava-se o risco de um
+ * job que gasta dinheiro para não entregar aviso nenhum.
  */
 @Injectable()
 export class BillingJobs implements OnModuleDestroy {
@@ -36,10 +42,9 @@ export class BillingJobs implements OnModuleDestroy {
     if (this.activity.ocioso(OCIOSO_MS)) return;
     this.running = true;
     try {
-      const created = await this.billing.generateRenewalCharges();
       const confirmed = await this.billing.confirmPendingCharges();
       const expired = await this.billing.expireStaleCharges();
-      if (created || confirmed || expired) this.log.log(`created=${created} confirmed=${confirmed} expired=${expired}`);
+      if (confirmed || expired) this.log.log(`confirmed=${confirmed} expired=${expired}`);
     } catch (err) {
       this.log.error(err);
     } finally {
